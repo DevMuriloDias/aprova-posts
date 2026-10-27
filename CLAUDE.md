@@ -35,6 +35,25 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
 - **Mobile-first**: projetar primeiro para telas pequenas e depois ampliar com os breakpoints do Tailwind.
 - **Registro de ações**: aprovações e pedidos de ajuste sempre gravados com data e hora (`timestamptz`).
 
+## Convenções do código
+
+- **Next.js 16**: o middleware agora se chama `src/proxy.ts`. `cacheComponents` está ligado, então
+  qualquer leitura de cookies/sessão precisa ficar dentro de `<Suspense>`. Veja `AGENTS.md`.
+- Supabase no servidor: `criarClienteSupabase()` em `src/lib/supabase/server.ts` (usa a sessão, passa pelo RLS).
+  Para checar o usuário, use `supabase.auth.getClaims()` (nunca confie em `getSession()` no servidor).
+- Regras de negócio ficam em `src/lib/**` como funções testáveis; Server Actions só fazem a ligação.
+- Toda tabela nova: `owner_id default auth.uid()`, FK composta `(id, owner_id)` para o pai,
+  `revoke` do `anon`, RLS ligado e políticas para `authenticated`. O teste
+  `tests/db/rls.test.ts` falha se alguma tabela de `public` ficar sem RLS.
+- Links mágicos: salvar só o hash SHA-256 do token (`approval_links.token_hash`), nunca o token.
+- Variáveis de ambiente: documentar em `.env.example` e validar em `src/lib/env.ts`.
+
+## Comandos
+
+- `npm test`: testes unitários (Vitest) + testes de RLS, que rodam as migrations num Postgres em memória (PGlite)
+- `npm run lint`, `npm run typecheck`, `npm run build`
+- Migrations em `supabase/migrations/` (`npx supabase db push`)
+
 ## Forma de trabalhar
 
 - **Sempre escrever testes** para o que for implementado ou alterado (incluindo regras de acesso/RLS e validação dos links mágicos).

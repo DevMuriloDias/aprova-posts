@@ -1,0 +1,83 @@
+# Aprova Posts
+
+SaaS para social medias enviarem posts de Instagram para os clientes aprovarem por um link mágico.
+
+Stack: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + Supabase (Auth, Postgres e Storage).
+
+## Como rodar
+
+Requisitos: Node.js 22+ e um projeto no [Supabase](https://supabase.com).
+
+```bash
+npm install
+cp .env.example .env.local   # preencha com os dados do seu projeto
+npm run dev                  # http://localhost:3000
+```
+
+### Banco de dados
+
+As migrations ficam em `supabase/migrations/`. Para aplicar no seu projeto com o Supabase CLI:
+
+```bash
+npx supabase init            # só na primeira vez (cria supabase/config.toml)
+npx supabase link --project-ref SEU_PROJECT_REF
+npx supabase db push
+npm run db:types             # regenera src/types/database.ts
+```
+
+### Autenticação (Supabase → Authentication)
+
+- **URL Configuration**: em *Site URL* use o valor de `NEXT_PUBLIC_SITE_URL` e adicione
+  `http://localhost:3000/auth/confirm` (e o equivalente em produção) em *Redirect URLs*.
+- **Confirmação de e-mail** (recomendado): em *Email Templates → Confirm signup*, troque o link por
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&proximo=/painel`.
+  Assim a confirmação funciona mesmo se o e-mail for aberto em outro aparelho.
+  O link padrão do Supabase também funciona, desde que aberto no mesmo navegador do cadastro.
+
+## Scripts
+
+| Comando             | O que faz                                          |
+| ------------------- | -------------------------------------------------- |
+| `npm run dev`       | Servidor de desenvolvimento                        |
+| `npm run build`     | Build de produção                                  |
+| `npm test`          | Todos os testes (unitários + RLS do banco)         |
+| `npm run lint`      | ESLint                                             |
+| `npm run typecheck` | Checagem de tipos                                  |
+| `npm run db:types`  | Gera os tipos do banco a partir do projeto linkado |
+
+Os testes do banco rodam as migrations de verdade num Postgres em memória
+([PGlite](https://pglite.dev)), com um stub mínimo do Supabase (`tests/db/supabase-stub.sql`).
+Não precisam de Docker nem de conexão com o Supabase.
+
+## Estrutura
+
+```
+src/
+  app/
+    (auth)/entrar, (auth)/cadastro   telas de login e cadastro + server actions
+    auth/confirm                     destino do link de confirmação de e-mail
+    painel/                          área logada do social media
+  lib/
+    auth/                            validação, rotas, serviço de login/cadastro
+    supabase/                        clientes do Supabase (servidor e proxy)
+    env.ts                           validação das variáveis de ambiente
+  proxy.ts                           renova a sessão e protege /painel
+  types/database.ts                  tipos do banco
+supabase/migrations/                 esquema, RLS e storage
+tests/db/                            testes das políticas de RLS
+```
+
+## Modelo de dados
+
+| Tabela            | Para quê                                                                 |
+| ----------------- | ------------------------------------------------------------------------ |
+| `profiles`        | Um por social media (criado automaticamente no cadastro)                 |
+| `clients`         | Clientes do social media                                                 |
+| `posts`           | Posts de um cliente (legenda, status, data prevista)                     |
+| `post_slides`     | Mídias do post (1 ou até 20 num carrossel), no bucket privado `post-media` |
+| `approval_links`  | Links mágicos: só o hash SHA-256 do token, com expiração e revogação     |
+| `approval_events` | Histórico imutável de aprovações e pedidos de ajuste, com data e hora    |
+
+Todas as tabelas têm RLS: cada social media só enxerga e altera os próprios dados.
+O papel `anon` não tem acesso a nenhuma tabela; o fluxo do cliente final (link mágico)
+será feito pelo servidor.
