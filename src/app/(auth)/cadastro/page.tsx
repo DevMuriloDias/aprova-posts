@@ -17,7 +17,7 @@ export default function PaginaCadastro() {
       </div>
       <p className="mt-6 text-center text-sm text-zinc-600">
         Já tem conta?{" "}
-        <Link href={ROTA_ENTRAR} className="font-semibold text-fuchsia-700 hover:underline">
+        <Link href={ROTA_ENTRAR} className="font-semibold text-indigo-700 hover:underline">
           Entrar
         </Link>
       </p>

@@ -23,9 +23,9 @@ export default function PaginaInicial() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             href={ROTA_CADASTRO}
-            className="flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-orange-500 px-6 font-semibold text-white"
+            className="flex h-12 items-center justify-center rounded-xl bg-indigo-600 px-6 font-semibold text-white"
           >
-            Criar conta grátis
+            Criar conta
           </Link>
           <Link
             href={ROTA_ENTRAR}

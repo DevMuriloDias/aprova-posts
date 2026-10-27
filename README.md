@@ -56,15 +56,19 @@ src/
   app/
     (auth)/entrar, (auth)/cadastro   telas de login e cadastro + server actions
     auth/confirm                     destino do link de confirmação de e-mail
-    painel/                          área logada do social media
+    painel/                          área logada: clientes, posts, link e status
+    a/[token]/                       página do cliente (sem login, pelo link mágico)
   lib/
     auth/                            validação, rotas, serviço de login/cadastro
-    supabase/                        clientes do Supabase (servidor e proxy)
-    env.ts                           validação das variáveis de ambiente
+    aprovacao/                       página do link e registro das decisões
+    painel/                          cadastro de clientes/posts, geração de link
+    links/token.ts                   geração e hash dos tokens
+    supabase/                        clientes do Supabase (servidor, navegador, admin e proxy)
+    env.ts, env-servidor.ts          validação das variáveis de ambiente
   proxy.ts                           renova a sessão e protege /painel
   types/database.ts                  tipos do banco
 supabase/migrations/                 esquema, RLS e storage
-tests/db/                            testes das políticas de RLS
+tests/db/                            testes de RLS e das funções do banco
 ```
 
 ## Modelo de dados
@@ -79,5 +83,21 @@ tests/db/                            testes das políticas de RLS
 | `approval_events` | Histórico imutável de aprovações e pedidos de ajuste, com data e hora    |
 
 Todas as tabelas têm RLS: cada social media só enxerga e altera os próprios dados.
-O papel `anon` não tem acesso a nenhuma tabela; o fluxo do cliente final (link mágico)
-será feito pelo servidor.
+O papel `anon` não tem acesso a nenhuma tabela nem função.
+
+## Fluxo de aprovação
+
+1. No painel, o social media cadastra o cliente, cria os posts (as mídias sobem direto do
+   navegador para a pasta dele no bucket) e clica em **Gerar link**.
+2. O app gera um token aleatório de 256 bits, grava só o hash SHA-256 e mostra a URL
+   `/a/<token>` uma única vez. O link vale 30 dias; gerar outro revoga o anterior, e há o
+   botão **Revogar link**.
+3. O cliente abre o link (sem login). O servidor calcula o hash e chama
+   `get_approval_page` com a chave secreta; a função valida o link a cada acesso e devolve
+   só os posts daquele cliente. As mídias são exibidas por URLs assinadas válidas por 1 hora.
+4. Cada **Aprovar** / **Pedir ajuste** chama `register_approval`, que valida o link de novo,
+   grava em `approval_events` (com data e hora) e atualiza o status do post.
+5. O painel mostra o status de cada post, o último comentário e o histórico.
+
+A página do link envia `Referrer-Policy: no-referrer` (o token não vaza para outros sites),
+`X-Robots-Tag: noindex` e `Cache-Control: private, no-store`.

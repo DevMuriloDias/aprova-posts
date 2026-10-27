@@ -161,7 +161,35 @@ export type Database = {
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      create_post: {
+        Args: {
+          p_id: string;
+          p_client_id: string;
+          p_caption: string;
+          p_scheduled_for: string | null;
+          p_slides: Json;
+        };
+        Returns: Database["public"]["Tables"]["posts"]["Row"];
+      };
+      create_approval_link: {
+        Args: { p_client_id: string; p_token_hash: string };
+        Returns: Database["public"]["Tables"]["approval_links"]["Row"];
+      };
+      get_approval_page: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
+      register_approval: {
+        Args: {
+          p_token_hash: string;
+          p_post_id: string;
+          p_action: Database["public"]["Enums"]["approval_action"];
+          p_comment?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["approval_events"]["Row"];
+      };
+    };
     Enums: {
       post_status: "draft" | "pending_approval" | "approved" | "changes_requested";
       media_type: "image" | "video";

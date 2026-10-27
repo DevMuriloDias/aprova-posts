@@ -46,6 +46,10 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
   `revoke` do `anon`, RLS ligado e políticas para `authenticated`. O teste
   `tests/db/rls.test.ts` falha se alguma tabela de `public` ficar sem RLS.
 - Links mágicos: salvar só o hash SHA-256 do token (`approval_links.token_hash`), nunca o token.
+  O acesso do cliente passa só pelas funções `get_approval_page` e `register_approval`
+  (executáveis apenas pelo `service_role`), chamadas no servidor via `criarClienteAdmin()`.
+  Não use o cliente admin para nada além disso.
+- Identidade visual própria: não usar logo, ícones, gradiente ou cores do Instagram.
 - Variáveis de ambiente: documentar em `.env.example` e validar em `src/lib/env.ts`.
 
 ## Comandos

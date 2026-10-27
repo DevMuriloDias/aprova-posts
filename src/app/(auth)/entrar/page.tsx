@@ -19,7 +19,7 @@ export default function PaginaEntrar() {
       </div>
       <p className="mt-6 text-center text-sm text-zinc-600">
         Ainda não tem conta?{" "}
-        <Link href={ROTA_CADASTRO} className="font-semibold text-fuchsia-700 hover:underline">
+        <Link href={ROTA_CADASTRO} className="font-semibold text-indigo-700 hover:underline">
           Cadastre-se
         </Link>
       </p>
