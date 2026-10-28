@@ -5,12 +5,21 @@ import { Aviso } from "@/components/ui/aviso";
 import { BotaoEnviar } from "@/components/ui/botao-enviar";
 import { Campo } from "@/components/ui/campo";
 import { cadastrar } from "../actions";
+import { FormularioReenvio } from "../formulario-reenvio";
 
 export function FormularioCadastro() {
   const [estado, acao] = useActionState(cadastrar, {});
 
   if (estado.sucesso) {
-    return <Aviso tipo="sucesso">{estado.sucesso}</Aviso>;
+    return (
+      <div className="flex flex-col gap-4">
+        <Aviso tipo="sucesso">{estado.sucesso}</Aviso>
+        <FormularioReenvio
+          emailInicial={estado.valores?.email}
+          chamada="Não chegou? Reenviar o e-mail"
+        />
+      </div>
+    );
   }
 
   return (

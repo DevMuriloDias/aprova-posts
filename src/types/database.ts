@@ -15,7 +15,7 @@ export type Database = {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; full_name: string } & Timestamps;
+        Row: { id: string; full_name: string; events_seen_at: string } & Timestamps;
         Insert: never;
         Update: { full_name?: string };
         Relationships: [];
@@ -192,6 +192,14 @@ export type Database = {
           p_slides?: Json | null;
         };
         Returns: string[];
+      };
+      mark_events_seen: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      get_event_notification: {
+        Args: { p_event_id: string };
+        Returns: Json;
       };
       get_audio_upload_folder: {
         Args: { p_token_hash: string; p_post_id: string };

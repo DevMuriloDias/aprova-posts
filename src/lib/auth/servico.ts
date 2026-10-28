@@ -9,7 +9,7 @@ import {
 } from "./validacao";
 
 /** Só a parte do Supabase Auth que usamos (facilita os testes). */
-export type AuthCliente = Pick<SupabaseClient["auth"], "signInWithPassword" | "signUp">;
+export type AuthCliente = Pick<SupabaseClient["auth"], "signInWithPassword" | "signUp" | "resend">;
 
 export type EstadoFormulario = {
   erro?: string;
@@ -17,6 +17,8 @@ export type EstadoFormulario = {
   sucesso?: string;
   /** Valores para repreencher o formulário (nunca a senha). */
   valores?: { nome?: string; email?: string };
+  /** A conta existe mas o e-mail ainda não foi confirmado: oferecer reenvio. */
+  precisaConfirmar?: boolean;
 };
 
 export type Resultado =
@@ -28,7 +30,7 @@ export type Resultado =
  * Registra só código, status e mensagem: nunca senha nem e-mail.
  */
 export function registrarErroAuth(
-  operacao: "entrar" | "cadastrar",
+  operacao: "entrar" | "cadastrar" | "reenviar",
   erro: { code?: string; status?: number; message?: string; name?: string },
 ) {
   console.error(`[auth] Falha ao ${operacao}:`, {
@@ -42,6 +44,12 @@ export function registrarErroAuth(
 function texto(formData: FormData, campo: string): string {
   const valor = formData.get(campo);
   return typeof valor === "string" ? valor : "";
+}
+
+function urlDeConfirmacao(siteUrl: string): string {
+  const url = new URL("/auth/confirm", siteUrl);
+  url.searchParams.set("proximo", ROTA_PAINEL);
+  return url.toString();
 }
 
 export async function processarEntrada(
@@ -60,7 +68,14 @@ export async function processarEntrada(
   });
   if (error) {
     registrarErroAuth("entrar", error);
-    return { tipo: "estado", estado: { erro: traduzirErroAuth(error), valores: { email } } };
+    return {
+      tipo: "estado",
+      estado: {
+        erro: traduzirErroAuth(error),
+        valores: { email },
+        ...(error.code === "email_not_confirmed" ? { precisaConfirmar: true } : {}),
+      },
+    };
   }
 
   return { tipo: "redirecionar", destino: caminhoSeguro(texto(formData, "proximo")) };
@@ -81,15 +96,12 @@ export async function processarCadastro(
     return { tipo: "estado", estado: { erros: errosPorCampo(dados.error), valores } };
   }
 
-  const confirmacao = new URL("/auth/confirm", siteUrl);
-  confirmacao.searchParams.set("proximo", ROTA_PAINEL);
-
   const { data, error } = await auth.signUp({
     email: dados.data.email,
     password: dados.data.senha,
     options: {
       data: { full_name: dados.data.nome },
-      emailRedirectTo: confirmacao.toString(),
+      emailRedirectTo: urlDeConfirmacao(siteUrl),
     },
   });
   if (error) {
@@ -106,6 +118,40 @@ export async function processarCadastro(
     tipo: "estado",
     estado: {
       sucesso: `Quase lá! Enviamos um link de confirmação para ${dados.data.email}. Abra o e-mail para ativar sua conta.`,
+      valores: { email: dados.data.email },
     },
   };
+}
+
+export const MENSAGEM_REENVIO =
+  "Se houver uma conta aguardando confirmação com este e-mail, enviamos um novo link. Confira também a caixa de spam.";
+
+/**
+ * Reenvia o e-mail de confirmação do cadastro. A resposta é a mesma exista ou
+ * não a conta, para não revelar quais e-mails estão cadastrados.
+ */
+export async function processarReenvio(
+  auth: AuthCliente,
+  formData: FormData,
+  siteUrl: string,
+): Promise<EstadoFormulario> {
+  const email = texto(formData, "email");
+  const dados = esquemaEntrar.shape.email.safeParse(email);
+  if (!dados.success) {
+    return { erros: { email: dados.error.issues[0]?.message }, valores: { email } };
+  }
+
+  const { error } = await auth.resend({
+    type: "signup",
+    email: dados.data,
+    options: { emailRedirectTo: urlDeConfirmacao(siteUrl) },
+  });
+  if (error) {
+    registrarErroAuth("reenviar", error);
+    // Limite de envios é o único erro que vale mostrar; o resto vira a resposta neutra.
+    if (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit") {
+      return { erro: traduzirErroAuth(error), valores: { email: dados.data } };
+    }
+  }
+  return { sucesso: MENSAGEM_REENVIO, valores: { email: dados.data } };
 }

@@ -49,7 +49,11 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
   O acesso do cliente passa só pelas funções `get_approval_page`, `get_audio_upload_folder` e
   `register_approval` (executáveis apenas pelo `service_role`), chamadas no servidor via
   `criarClienteAdmin()`. O cliente admin só pode, além disso, assinar URLs das mídias que essas
-  funções devolvem e gravar o áudio na pasta devolvida por `get_audio_upload_folder`.
+  funções devolvem, gravar o áudio na pasta devolvida por `get_audio_upload_folder` e chamar
+  `get_event_notification` para montar o e-mail de aviso ao social media.
+- Avisos: e-mail (opcional, via Resend, só com `RESEND_API_KEY`) em todo pedido de ajuste e quando
+  o cliente aprova o último post pendente; enviado com `after()` para não atrasar o cliente. No
+  painel, "Novidades" usa `profiles.events_seen_at`.
 - Status do post: só o cliente aprova ou pede ajuste (`register_approval`). O social media não tem
   INSERT/UPDATE em `posts` nem em `post_slides`; cria e edita pelas funções `create_post` e
   `update_post`, e toda edição gera uma nova versão que volta para aprovação.

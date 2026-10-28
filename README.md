@@ -107,5 +107,13 @@ bucket e só então registra o evento; se o registro falhar, o áudio é apagado
 se quiser, as mídias. O post ganha uma nova versão e volta para "Aguardando aprovação"; o cliente
 vê o aviso "Post ajustado" com o que tinha pedido. Cada resposta guarda a versão avaliada.
 
+**Avisos:** em **Novidades** (no topo do painel) aparecem as últimas respostas dos clientes, com
+um contador do que chegou desde a última visita. Se `RESEND_API_KEY` estiver configurada, o
+social media também recebe um e-mail em todo pedido de ajuste e quando o cliente aprova o último
+post pendente (aprovações intermediárias não geram e-mail, para não lotar a caixa de entrada).
+
+**Confirmação de e-mail:** se o link de confirmação falhar ou o e-mail não chegar, a tela de
+entrar oferece **Reenviar e-mail de confirmação** (a resposta é a mesma exista ou não a conta).
+
 A página do link envia `Referrer-Policy: no-referrer` (o token não vaza para outros sites),
 `X-Robots-Tag: noindex` e `Cache-Control: private, no-store`.

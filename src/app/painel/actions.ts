@@ -74,3 +74,17 @@ export async function acaoRevogarLink(linkId: string, clienteId: string): Promis
   revalidatePath(`/painel/clientes/${clienteId}`);
   return { ok: true };
 }
+
+/**
+ * Marca as Novidades como vistas e devolve o horário da visita anterior,
+ * para a tela continuar destacando o que era novo.
+ */
+export async function acaoMarcarNovidadesVistas(): Promise<string | null> {
+  await exigirUsuario();
+  const supabase = await criarClienteSupabase();
+  const { data: perfil } = await supabase.from("profiles").select("events_seen_at").maybeSingle();
+  const { error } = await supabase.rpc("mark_events_seen");
+  if (error) return null;
+  revalidatePath("/painel", "layout");
+  return perfil?.events_seen_at ?? null;
+}

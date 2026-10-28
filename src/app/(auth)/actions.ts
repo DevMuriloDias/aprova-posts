@@ -5,6 +5,7 @@ import { ROTA_ENTRAR } from "@/lib/auth/rotas";
 import {
   processarCadastro,
   processarEntrada,
+  processarReenvio,
   type EstadoFormulario,
   type Resultado,
 } from "@/lib/auth/servico";
@@ -34,6 +35,14 @@ export async function cadastrar(
   return concluir(
     await processarCadastro(supabase.auth, formData, envPublico().NEXT_PUBLIC_SITE_URL),
   );
+}
+
+export async function reenviarConfirmacao(
+  _anterior: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const supabase = await criarClienteSupabase();
+  return processarReenvio(supabase.auth, formData, envPublico().NEXT_PUBLIC_SITE_URL);
 }
 
 export async function sair() {
