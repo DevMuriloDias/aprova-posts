@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { processarCadastro, processarEntrada, type AuthCliente } from "./servico";
 
 function form(campos: Record<string, string>) {
@@ -117,5 +117,39 @@ describe("processarCadastro", () => {
     });
     const r = await processarCadastro(auth, form(valido), site);
     expect(r).toMatchObject({ estado: { erro: "Já existe uma conta com este e-mail." } });
+  });
+});
+
+describe("registro de erros no terminal", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("mostra o código e a mensagem do Supabase, sem senha nem e-mail", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = authFalso({
+      cadastrar: {
+        data: { session: null },
+        error: { code: "unexpected_failure", status: 500, message: "Error sending confirmation email" },
+      },
+    });
+    await processarCadastro(
+      auth,
+      form({ nome: "Ana", email: "ana@exemplo.com", senha: "senhaforte1", confirmacao: "senhaforte1" }),
+      "https://app.exemplo.com",
+    );
+
+    expect(log).toHaveBeenCalledOnce();
+    const saida = JSON.stringify(log.mock.calls[0]);
+    expect(saida).toContain("unexpected_failure");
+    expect(saida).toContain("Error sending confirmation email");
+    expect(saida).not.toContain("senhaforte1");
+    expect(saida).not.toContain("ana@exemplo.com");
+  });
+
+  it("também registra falhas ao entrar", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = authFalso({ entrar: { error: { code: "invalid_credentials", message: "x" } } });
+    await processarEntrada(auth, form({ email: "a@b.com", senha: "errada123" }));
+    expect(log.mock.calls[0][0]).toBe("[auth] Falha ao entrar:");
+    expect(JSON.stringify(log.mock.calls[0])).not.toContain("errada123");
   });
 });
