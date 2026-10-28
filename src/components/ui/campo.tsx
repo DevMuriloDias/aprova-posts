@@ -19,7 +19,7 @@ export function Campo({ rotulo, erro, name, id, className = "", ...resto }: Prop
         name={name}
         aria-invalid={erro ? true : undefined}
         aria-describedby={erro ? idErro : undefined}
-        className={`h-12 w-full rounded-xl border bg-white px-4 text-base text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 ${
+        className={`h-12 w-full rounded-xl border bg-white px-4 text-base text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-marca-500 focus:ring-4 focus:ring-marca-100 ${
           erro ? "border-red-400" : "border-zinc-300"
         } ${className}`}
         {...resto}

@@ -27,7 +27,7 @@ export function FormularioReenvio({
       <button
         type="button"
         onClick={() => setMostrar(true)}
-        className="text-sm font-semibold text-indigo-700 hover:underline"
+        className="text-sm font-semibold text-marca-700 hover:underline"
       >
         {chamada}
       </button>

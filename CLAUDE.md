@@ -57,7 +57,13 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
 - Status do post: só o cliente aprova ou pede ajuste (`register_approval`). O social media não tem
   INSERT/UPDATE em `posts` nem em `post_slides`; cria e edita pelas funções `create_post` e
   `update_post`, e toda edição gera uma nova versão que volta para aprovação.
-- Identidade visual própria: não usar logo, ícones, gradiente ou cores do Instagram.
+- Identidade visual própria: não usar logo, ícones, gradiente ou cores do Instagram. Use as cores
+  do tema em `src/app/globals.css` (`marca-*` azul-petróleo, `destaque` verde-limão, `fundo` creme,
+  `tinta`), não cores soltas; status: verde aprovado, âmbar ajuste, azul aguardando.
+- Calendário: datas agrupadas no horário de Brasília (`src/lib/calendario`). Reagendar
+  (`reschedule_post`) muda só a data e não pede nova aprovação; editar conteúdo (`update_post`) pede.
+- Exclusão: `delete_client` / `delete_post` apagam em cascata e devolvem os arquivos para o app
+  remover do storage. O histórico some junto: a interface sempre pede confirmação.
 - Variáveis de ambiente: documentar em `.env.example` e validar em `src/lib/env.ts`.
 
 ## Comandos

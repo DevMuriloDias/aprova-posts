@@ -73,7 +73,7 @@ export function SecaoLink({ clienteId, nomeCliente, link }: Props) {
             <button
               type="button"
               onClick={() => copiar(novo.url)}
-              className="h-11 rounded-xl bg-indigo-600 font-semibold text-white"
+              className="h-11 rounded-xl bg-marca-600 font-semibold text-white"
             >
               {copiado ? "Copiado!" : "Copiar link"}
             </button>
@@ -106,7 +106,7 @@ export function SecaoLink({ clienteId, nomeCliente, link }: Props) {
           type="button"
           onClick={gerar}
           disabled={pendente}
-          className="h-10 rounded-xl border border-indigo-300 px-4 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+          className="h-10 rounded-xl border border-marca-300 px-4 text-sm font-semibold text-marca-700 hover:bg-marca-50 disabled:opacity-60"
         >
           {pendente ? "Aguarde…" : link || novo ? "Gerar novo link" : "Gerar link"}
         </button>

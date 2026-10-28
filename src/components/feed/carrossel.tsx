@@ -95,7 +95,7 @@ export function Carrossel({ midias, rotulo }: { midias: Midia[]; rotulo: string 
                 aria-label={`Ir para a mídia ${i + 1}`}
                 aria-current={i === atual}
                 className={`size-2 rounded-full transition ${
-                  i === atual ? "bg-indigo-600" : "bg-white/80"
+                  i === atual ? "bg-marca-600" : "bg-white/80"
                 }`}
               />
             ))}

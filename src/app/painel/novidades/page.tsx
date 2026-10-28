@@ -69,7 +69,7 @@ function ItemNovidade({ item }: { item: Novidade }) {
           {ajuste ? "Ajuste pedido" : "Aprovado"}
         </span>
         {item.nova && (
-          <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-bold text-white">
+          <span className="rounded-full bg-marca-600 px-2 py-0.5 text-[11px] font-bold text-white">
             Novo
           </span>
         )}
@@ -85,7 +85,7 @@ function ItemNovidade({ item }: { item: Novidade }) {
 
   return (
     <li
-      className={`rounded-2xl border bg-white p-4 ${item.nova ? "border-indigo-300" : "border-zinc-200"}`}
+      className={`rounded-2xl border bg-white p-4 ${item.nova ? "border-marca-300" : "border-zinc-200"}`}
     >
       {item.clienteId ? (
         <Link href={`/painel/clientes/${item.clienteId}`} className="block [&_p]:line-clamp-2">

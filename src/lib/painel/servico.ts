@@ -127,3 +127,70 @@ export async function gerarLink(
   }
   return { ok: true, url: urlDoLink(siteUrl, token), expiraEm: data.expires_at };
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type RpcArquivos = (args: { p_id: string }) => Promise<RespostaBanco & { data: string[] | null }>;
+
+/**
+ * Exclui (cliente ou post) e apaga do storage os arquivos que ficaram sem uso.
+ * Se apagar os arquivos falhar, a exclusão continua valendo: só sobram arquivos órfãos.
+ */
+async function excluir(
+  id: string,
+  rpc: RpcArquivos,
+  apagarArquivos: (caminhos: string[]) => Promise<void>,
+  naoEncontrado: { codigo: string; mensagem: string },
+): Promise<Resultado<{ arquivos: number }>> {
+  if (!UUID.test(id)) return { ok: false, erro: naoEncontrado.mensagem };
+  const { data, error } = await rpc({ p_id: id });
+  if (error) {
+    return {
+      ok: false,
+      erro: error.message.includes(naoEncontrado.codigo)
+        ? naoEncontrado.mensagem
+        : "Não foi possível excluir agora. Tente novamente.",
+    };
+  }
+  const caminhos = data ?? [];
+  // A API do storage apaga até 1000 por vez; mandamos em lotes de 100.
+  for (let i = 0; i < caminhos.length; i += 100) {
+    try {
+      await apagarArquivos(caminhos.slice(i, i + 100));
+    } catch (erro) {
+      console.error("[painel] Falha ao apagar arquivos do storage:", erro);
+    }
+  }
+  return { ok: true, arquivos: caminhos.length };
+}
+
+export function excluirCliente(id: string, rpc: RpcArquivos, apagar: (c: string[]) => Promise<void>) {
+  return excluir(id, rpc, apagar, { codigo: "cliente_nao_encontrado", mensagem: "Cliente não encontrado." });
+}
+
+export function excluirPost(id: string, rpc: RpcArquivos, apagar: (c: string[]) => Promise<void>) {
+  return excluir(id, rpc, apagar, { codigo: "post_nao_encontrado", mensagem: "Post não encontrado." });
+}
+
+/** Muda só a data/hora prevista (sem nova aprovação). null tira a data. */
+export async function reagendarPost(
+  id: string,
+  agendadoPara: string | null,
+  rpc: (args: { p_id: string; p_scheduled_for: string | null }) => Promise<RespostaBanco>,
+): Promise<Resultado> {
+  if (!UUID.test(id)) return { ok: false, erro: "Post não encontrado." };
+  if (agendadoPara !== null && Number.isNaN(Date.parse(agendadoPara))) {
+    return { ok: false, erro: "Data de publicação inválida." };
+  }
+  const { error } = await rpc({
+    p_id: id,
+    p_scheduled_for: agendadoPara === null ? null : new Date(agendadoPara).toISOString(),
+  });
+  if (error) {
+    return {
+      ok: false,
+      erro: error.message.includes("post_nao_encontrado") ? "Post não encontrado." : ERRO_GENERICO,
+    };
+  }
+  return { ok: true };
+}

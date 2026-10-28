@@ -200,3 +200,99 @@ export async function listarNovidades(desdeDaUrl: string | null) {
   );
   return { vistoEm: visto, itens: mapearNovidades(linhas, visto, urls) };
 }
+
+// ---------------------------------------------------------------------------
+// Calendário
+// ---------------------------------------------------------------------------
+
+export type PostNoCalendario = {
+  id: string;
+  clienteId: string;
+  clienteNome: string;
+  legenda: string;
+  status: StatusPost;
+  agendadoPara: string | null;
+  capaUrl: string | null;
+  capaTipo: "image" | "video" | null;
+  totalMidias: number;
+};
+
+type LinhaCalendario = {
+  id: string;
+  caption: string;
+  status: StatusPost;
+  scheduled_for: string | null;
+  client_id: string;
+  clients: { name: string } | null;
+  post_slides: { position: number; media_type: "image" | "video"; storage_path: string }[];
+};
+
+const COLUNAS_CALENDARIO =
+  "id, caption, status, scheduled_for, client_id, clients(name), post_slides(position, media_type, storage_path)";
+
+/** Posts com data dentro de [inicio, fim), os sem data e a lista de clientes. */
+export async function listarCalendario(filtro: {
+  inicio: string;
+  fim: string;
+  clienteId: string | null;
+}) {
+  const supabase = await criarClienteSupabase();
+
+  let agendados = supabase
+    .from("posts")
+    .select(COLUNAS_CALENDARIO)
+    .gte("scheduled_for", filtro.inicio)
+    .lt("scheduled_for", filtro.fim)
+    .order("scheduled_for");
+  let semData = supabase
+    .from("posts")
+    .select(COLUNAS_CALENDARIO)
+    .is("scheduled_for", null)
+    .order("created_at");
+  if (filtro.clienteId) {
+    agendados = agendados.eq("client_id", filtro.clienteId);
+    semData = semData.eq("client_id", filtro.clienteId);
+  }
+
+  const [rAgendados, rSemData, rClientes] = await Promise.all([
+    agendados,
+    semData,
+    supabase.from("clients").select("id, name").order("name"),
+  ]);
+  for (const r of [rAgendados, rSemData, rClientes]) {
+    if (r.error) throw new Error(`Falha ao carregar o calendário: ${r.error.message}`);
+  }
+
+  const linhas = [
+    ...((rAgendados.data ?? []) as unknown as LinhaCalendario[]),
+    ...((rSemData.data ?? []) as unknown as LinhaCalendario[]),
+  ];
+  const capas = new Map(
+    linhas.map((l) => [l.id, [...l.post_slides].sort((a, b) => a.position - b.position)[0]]),
+  );
+  const urls = await assinar(
+    supabase,
+    [...capas.values()].flatMap((c) => (c ? [c.storage_path] : [])),
+  );
+
+  const mapear = (l: LinhaCalendario): PostNoCalendario => {
+    const capa = capas.get(l.id);
+    return {
+      id: l.id,
+      clienteId: l.client_id,
+      clienteNome: l.clients?.name ?? "Cliente",
+      legenda: l.caption,
+      status: l.status,
+      agendadoPara: l.scheduled_for,
+      capaUrl: capa ? (urls.get(capa.storage_path) ?? null) : null,
+      capaTipo: capa?.media_type ?? null,
+      totalMidias: l.post_slides.length,
+    };
+  };
+
+  return {
+    clientes: (rClientes.data ?? []).map((c) => ({ id: c.id, nome: c.name })),
+    agendados: ((rAgendados.data ?? []) as unknown as LinhaCalendario[]).map(mapear),
+    semData: ((rSemData.data ?? []) as unknown as LinhaCalendario[]).map(mapear),
+  };
+}

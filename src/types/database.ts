@@ -193,6 +193,18 @@ export type Database = {
         };
         Returns: string[];
       };
+      reschedule_post: {
+        Args: { p_id: string; p_scheduled_for: string | null };
+        Returns: Database["public"]["Tables"]["posts"]["Row"];
+      };
+      delete_post: {
+        Args: { p_id: string };
+        Returns: string[];
+      };
+      delete_client: {
+        Args: { p_id: string };
+        Returns: string[];
+      };
       mark_events_seen: {
         Args: Record<string, never>;
         Returns: string;

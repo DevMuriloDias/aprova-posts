@@ -142,7 +142,7 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
               maxLength={LIMITE_COMENTARIO}
               rows={3}
               placeholder="Ex.: trocar a segunda foto e corrigir o preço na legenda."
-              className="w-full rounded-xl border border-zinc-300 p-3 text-base outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              className="w-full rounded-xl border border-zinc-300 p-3 text-base outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
             />
             <GravadorAudio aoMudar={setAudio} desabilitado={pendente} />
             <div className="grid grid-cols-2 gap-2">

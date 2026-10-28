@@ -1,6 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { hashDoToken } from "@/lib/links/token";
-import { criarCliente, criarPost, editarPost, gerarLink } from "./servico";
+import {
+  criarCliente,
+  criarPost,
+  editarPost,
+  excluirCliente,
+  excluirPost,
+  gerarLink,
+  reagendarPost,
+} from "./servico";
 
 const DONO = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OUTRO = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -170,5 +178,67 @@ describe("editarPost", () => {
       ok: false,
       erro: "Post não encontrado.",
     });
+  });
+});
+
+describe("excluir cliente e post", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("exclui e apaga do storage os arquivos devolvidos, em lotes de 100", async () => {
+    const arquivos = Array.from({ length: 150 }, (_, i) => `${DONO}/${CLIENTE}/${i}.jpg`);
+    const rpc = vi.fn().mockResolvedValue({ data: arquivos, error: null });
+    const apagar = vi.fn().mockResolvedValue(undefined);
+    expect(await excluirCliente(CLIENTE, rpc, apagar)).toEqual({ ok: true, arquivos: 150 });
+    expect(rpc).toHaveBeenCalledWith({ p_id: CLIENTE });
+    expect(apagar.mock.calls.map((c) => c[0].length)).toEqual([100, 50]);
+  });
+
+  it("sem arquivos, não chama o storage", async () => {
+    const apagar = vi.fn();
+    await excluirPost(POST, vi.fn().mockResolvedValue({ data: [], error: null }), apagar);
+    expect(apagar).not.toHaveBeenCalled();
+  });
+
+  it("se o storage falhar, a exclusão continua valendo", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await excluirPost(
+      POST,
+      vi.fn().mockResolvedValue({ data: ["a.jpg"], error: null }),
+      vi.fn().mockRejectedValue(new Error("storage fora do ar")),
+    );
+    expect(r).toEqual({ ok: true, arquivos: 1 });
+  });
+
+  it("traduz o que não foi encontrado e recusa id inválido", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "cliente_nao_encontrado" } });
+    expect(await excluirCliente(CLIENTE, rpc, vi.fn())).toEqual({ ok: false, erro: "Cliente não encontrado." });
+    const naoChamado = vi.fn();
+    expect(await excluirPost("nao-e-uuid", naoChamado, vi.fn())).toEqual({
+      ok: false,
+      erro: "Post não encontrado.",
+    });
+    expect(naoChamado).not.toHaveBeenCalled();
+  });
+});
+
+describe("reagendarPost", () => {
+  it("envia a nova data em ISO", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    expect(await reagendarPost(POST, "2026-11-20T18:30:00.000Z", rpc)).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith({ p_id: POST, p_scheduled_for: "2026-11-20T18:30:00.000Z" });
+  });
+
+  it("aceita tirar a data", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    await reagendarPost(POST, null, rpc);
+    expect(rpc).toHaveBeenCalledWith({ p_id: POST, p_scheduled_for: null });
+  });
+
+  it("valida a data e o post", async () => {
+    const rpc = vi.fn();
+    expect(await reagendarPost(POST, "amanhã", rpc)).toEqual({ ok: false, erro: "Data de publicação inválida." });
+    expect(rpc).not.toHaveBeenCalled();
+    const outro = vi.fn().mockResolvedValue({ error: { message: "post_nao_encontrado" } });
+    expect(await reagendarPost(POST, null, outro)).toEqual({ ok: false, erro: "Post não encontrado." });
   });
 });
