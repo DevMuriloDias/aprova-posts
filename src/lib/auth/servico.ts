@@ -23,6 +23,22 @@ export type Resultado =
   | { tipo: "estado"; estado: EstadoFormulario }
   | { tipo: "redirecionar"; destino: string };
 
+/**
+ * Mostra no terminal do servidor o motivo real de um erro do Supabase Auth.
+ * Registra só código, status e mensagem: nunca senha nem e-mail.
+ */
+export function registrarErroAuth(
+  operacao: "entrar" | "cadastrar",
+  erro: { code?: string; status?: number; message?: string; name?: string },
+) {
+  console.error(`[auth] Falha ao ${operacao}:`, {
+    code: erro.code,
+    status: erro.status,
+    name: erro.name,
+    message: erro.message,
+  });
+}
+
 function texto(formData: FormData, campo: string): string {
   const valor = formData.get(campo);
   return typeof valor === "string" ? valor : "";
@@ -43,6 +59,7 @@ export async function processarEntrada(
     password: dados.data.senha,
   });
   if (error) {
+    registrarErroAuth("entrar", error);
     return { tipo: "estado", estado: { erro: traduzirErroAuth(error), valores: { email } } };
   }
 
@@ -76,6 +93,7 @@ export async function processarCadastro(
     },
   });
   if (error) {
+    registrarErroAuth("cadastrar", error);
     return { tipo: "estado", estado: { erro: traduzirErroAuth(error), valores } };
   }
 

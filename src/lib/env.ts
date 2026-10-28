@@ -1,9 +1,13 @@
 import { z } from "zod";
 
 const esquema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.url({
-    message: "NEXT_PUBLIC_SUPABASE_URL precisa ser uma URL válida.",
-  }),
+  NEXT_PUBLIC_SUPABASE_URL: z
+    .url({ message: "NEXT_PUBLIC_SUPABASE_URL precisa ser uma URL válida." })
+    // Só o endereço base: o Supabase mostra em algumas telas a URL com /rest/v1/.
+    .refine((v) => URL.canParse(v) && new URL(v).pathname.replace(/\/+$/, "") === "", {
+      message:
+        "NEXT_PUBLIC_SUPABASE_URL deve ser só o endereço base, sem nada depois do domínio (ex.: https://abc123.supabase.co, sem /rest/v1).",
+    }),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z
     .string()
     .min(1, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY não foi definida."),
