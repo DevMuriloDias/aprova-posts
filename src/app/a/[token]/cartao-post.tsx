@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { Avatar } from "@/components/avatar";
 import { Carrossel } from "@/components/feed/carrossel";
+import { GravadorAudio } from "@/components/gravador-audio";
 import { StatusPostSelo } from "@/components/status-post";
 import { LIMITE_COMENTARIO } from "@/lib/aprovacao/limites";
 import type {
@@ -13,11 +14,22 @@ import type {
 } from "@/lib/aprovacao/tipos";
 import { formatarDataCurta, formatarDataHora } from "@/lib/formatacao";
 
-export type FuncaoDecidir = (
+/** Recebe FormData com postId, acao, comentario e, se houver, audio. */
+export type FuncaoDecidir = (dados: FormData) => Promise<ResultadoDecisao>;
+
+export function montarDecisao(
   postId: string,
   acao: Decisao,
   comentario?: string,
-) => Promise<ResultadoDecisao>;
+  audio?: Blob | null,
+): FormData {
+  const dados = new FormData();
+  dados.set("postId", postId);
+  dados.set("acao", acao);
+  if (comentario?.trim()) dados.set("comentario", comentario.trim());
+  if (audio) dados.set("audio", audio, "audio");
+  return dados;
+}
 
 type Props = {
   post: PostParaAprovar;
@@ -32,6 +44,7 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
   const [pendente, iniciar] = useTransition();
   const [pedindoAjuste, setPedindoAjuste] = useState(false);
   const [comentario, setComentario] = useState("");
+  const [audio, setAudio] = useState<Blob | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [legendaAberta, setLegendaAberta] = useState(false);
   const idComentario = useId();
@@ -40,13 +53,18 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
   function enviar(acao: Decisao) {
     setErro(null);
     iniciar(async () => {
-      const resultado = await decidir(post.id, acao, acao === "changes_requested" ? comentario : undefined);
+      const resultado = await decidir(
+        acao === "changes_requested"
+          ? montarDecisao(post.id, acao, comentario, audio)
+          : montarDecisao(post.id, acao),
+      );
       if (!resultado.ok) {
         setErro(resultado.erro);
         return;
       }
       setPedindoAjuste(false);
       setComentario("");
+      setAudio(null);
       aoDecidir(resultado);
     });
   }
@@ -94,17 +112,7 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
           </p>
         )}
 
-        {post.ultimaDecisao && (
-          <p className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700" role="status">
-            {post.ultimaDecisao.acao === "approved" ? "Você aprovou" : "Você pediu ajuste"} em{" "}
-            {formatarDataHora(post.ultimaDecisao.em)}
-            {post.ultimaDecisao.comentario && (
-              <span className="mt-1 block italic text-zinc-600">
-                “{post.ultimaDecisao.comentario}”
-              </span>
-            )}
-          </p>
-        )}
+        <AvisoDecisao post={post} />
 
         {erro && (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -117,15 +125,15 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
             className="flex flex-col gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!comentario.trim()) {
-                setErro("Conte o que precisa ser ajustado.");
+              if (!comentario.trim() && !audio) {
+                setErro("Escreva o que precisa ajustar ou grave um áudio.");
                 return;
               }
               enviar("changes_requested");
             }}
           >
             <label htmlFor={idComentario} className="text-sm font-medium text-zinc-800">
-              O que precisa ajustar?
+              O que precisa ajustar? Escreva ou grave um áudio.
             </label>
             <textarea
               id={idComentario}
@@ -133,16 +141,17 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
               onChange={(e) => setComentario(e.target.value)}
               maxLength={LIMITE_COMENTARIO}
               rows={3}
-              autoFocus
               placeholder="Ex.: trocar a segunda foto e corrigir o preço na legenda."
               className="w-full rounded-xl border border-zinc-300 p-3 text-base outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
             />
+            <GravadorAudio aoMudar={setAudio} desabilitado={pendente} />
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setPedindoAjuste(false);
                   setErro(null);
+                  setAudio(null);
                 }}
                 className="h-11 rounded-xl border border-zinc-300 font-semibold text-zinc-700"
               >
@@ -182,5 +191,51 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
         )}
       </div>
     </article>
+  );
+}
+
+function OuvirAudio({ url }: { url: string | null }) {
+  if (!url) return null;
+  return <audio src={url} controls preload="none" className="mt-2 w-full" aria-label="Áudio do pedido de ajuste" />;
+}
+
+/** O que o cliente já respondeu, ou o aviso de que o post mudou depois disso. */
+function AvisoDecisao({ post }: { post: PostParaAprovar }) {
+  const decisao = post.ultimaDecisao;
+  if (!decisao) return null;
+
+  if (decisao.versao < post.versao) {
+    const quando = post.reenviadoEm ? ` em ${formatarDataHora(post.reenviadoEm)}` : "";
+    return (
+      <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900" role="status">
+        {decisao.acao === "changes_requested" ? (
+          <>
+            <p className="font-semibold">Post ajustado{quando}. Confira a nova versão.</p>
+            {decisao.comentario && (
+              <p className="mt-1 text-sky-800">
+                Você tinha pedido: <span className="italic">“{decisao.comentario}”</span>
+              </p>
+            )}
+            {decisao.audioUrl && <p className="mt-1 text-sky-800">Seu áudio:</p>}
+            <OuvirAudio url={decisao.audioUrl} />
+          </>
+        ) : (
+          <p className="font-semibold">
+            Este post foi alterado{quando}, depois da sua aprovação. Confira de novo.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700" role="status">
+      {decisao.acao === "approved" ? "Você aprovou" : "Você pediu ajuste"} em{" "}
+      {formatarDataHora(decisao.em)}
+      {decisao.comentario && (
+        <span className="mt-1 block italic text-zinc-600">“{decisao.comentario}”</span>
+      )}
+      <OuvirAudio url={decisao.audioUrl} />
+    </div>
   );
 }

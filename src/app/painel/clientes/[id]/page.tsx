@@ -9,7 +9,8 @@ import { StatusPostSelo } from "@/components/status-post";
 import { textoProgresso } from "@/lib/aprovacao/progresso";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { formatarDataCurta, formatarDataHora } from "@/lib/formatacao";
-import { detalharCliente, type PostNoPainel } from "@/lib/painel/consultas";
+import { detalharCliente, type EventoNoPainel, type PostNoPainel } from "@/lib/painel/consultas";
+import { EditorPost } from "./editor-post";
 import { FormularioPost } from "./formulario-post";
 import { SecaoLink } from "./secao-link";
 
@@ -66,7 +67,7 @@ async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">
         ) : (
           <ul className="flex flex-col gap-3">
             {cliente.posts.map((post) => (
-              <ItemPost key={post.id} post={post} />
+              <ItemPost key={post.id} post={post} donoId={usuario.id} clienteId={cliente.id} />
             ))}
           </ul>
         )}
@@ -75,54 +76,99 @@ async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">
   );
 }
 
-function ItemPost({ post }: { post: PostNoPainel }) {
+type PropsItem = { post: PostNoPainel; donoId: string; clienteId: string };
+
+function ItemPost({ post, donoId, clienteId }: PropsItem) {
   const ultimo = post.historico[0];
+  // A última resposta foi sobre uma versão anterior: o post já foi ajustado e reenviado.
+  const reenviado = ultimo && ultimo.versao < post.versao;
+
   return (
-    <li className="flex gap-3 rounded-2xl border border-zinc-200 bg-white p-3">
-      <div className="relative aspect-[4/5] w-20 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
-        {post.capaUrl && post.capaTipo === "image" && (
-          <img src={post.capaUrl} alt="" className="h-full w-full object-cover" />
-        )}
-        {post.capaUrl && post.capaTipo === "video" && (
-          <video src={post.capaUrl} muted preload="metadata" className="h-full w-full object-cover" />
-        )}
-        {post.totalMidias > 1 && (
-          <span className="absolute right-1 top-1 rounded bg-zinc-900/70 px-1 text-[10px] text-white">
-            {post.totalMidias}
-          </span>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusPostSelo status={post.status} />
-          {post.agendadoPara && (
-            <span className="text-xs text-zinc-500">{formatarDataCurta(post.agendadoPara)}</span>
+    <li className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-3">
+      <div className="flex gap-3">
+        <div className="relative aspect-[4/5] w-20 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+          {post.capaUrl && post.capaTipo === "image" && (
+            <img src={post.capaUrl} alt="" className="h-full w-full object-cover" />
+          )}
+          {post.capaUrl && post.capaTipo === "video" && (
+            <video src={post.capaUrl} muted preload="metadata" className="h-full w-full object-cover" />
+          )}
+          {post.totalMidias > 1 && (
+            <span className="absolute right-1 top-1 rounded bg-zinc-900/70 px-1 text-[10px] text-white">
+              {post.totalMidias}
+            </span>
           )}
         </div>
-        <p className="line-clamp-2 text-sm text-zinc-800">{post.legenda || "Sem legenda"}</p>
-        {ultimo && (
-          <p className="text-xs text-zinc-600">
-            {ultimo.acao === "approved" ? "Aprovado" : "Ajuste pedido"} em{" "}
-            {formatarDataHora(ultimo.em)}
-            {ultimo.comentario && <span className="mt-0.5 block italic">“{ultimo.comentario}”</span>}
-          </p>
-        )}
-        {post.historico.length > 1 && (
-          <details className="text-xs text-zinc-600">
-            <summary className="cursor-pointer font-medium">
-              Histórico ({post.historico.length} respostas)
-            </summary>
-            <ol className="mt-1 flex flex-col gap-1">
-              {post.historico.map((e, i) => (
-                <li key={i}>
-                  {formatarDataHora(e.em)}: {e.acao === "approved" ? "aprovado" : "ajuste pedido"}
-                  {e.comentario && ` (“${e.comentario}”)`}
-                </li>
-              ))}
-            </ol>
-          </details>
-        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPostSelo status={post.status} />
+            {post.agendadoPara && (
+              <span className="text-xs text-zinc-500">{formatarDataCurta(post.agendadoPara)}</span>
+            )}
+            {post.versao > 1 && <span className="text-xs text-zinc-500">Versão {post.versao}</span>}
+          </div>
+          <p className="line-clamp-2 text-sm text-zinc-800">{post.legenda || "Sem legenda"}</p>
+          {reenviado && post.reenviadoEm && (
+            <p className="text-xs font-medium text-sky-800">
+              Reenviado em {formatarDataHora(post.reenviadoEm)}. Aguardando o cliente.
+            </p>
+          )}
+          {ultimo && <Resposta evento={ultimo} anterior={reenviado} />}
+        </div>
       </div>
+
+      {post.historico.length > 1 && (
+        <details className="text-xs text-zinc-600">
+          <summary className="cursor-pointer font-medium">
+            Histórico ({post.historico.length} respostas)
+          </summary>
+          <ol className="mt-2 flex flex-col gap-2">
+            {post.historico.map((e, i) => (
+              <li key={i}>
+                {formatarDataHora(e.em)} · versão {e.versao}:{" "}
+                {e.acao === "approved" ? "aprovado" : "ajuste pedido"}
+                {e.comentario && ` (“${e.comentario}”)`}
+                {e.audioUrl && (
+                  <audio src={e.audioUrl} controls preload="none" className="mt-1 w-full" />
+                )}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+
+      <EditorPost
+        donoId={donoId}
+        clienteId={clienteId}
+        post={{
+          id: post.id,
+          legenda: post.legenda,
+          agendadoPara: post.agendadoPara,
+          status: post.status,
+          totalMidias: post.totalMidias,
+        }}
+      />
     </li>
+  );
+}
+
+function Resposta({ evento, anterior }: { evento: EventoNoPainel; anterior: boolean }) {
+  return (
+    <div className="text-xs text-zinc-600">
+      <p>
+        {anterior ? "Pedido anterior: " : ""}
+        {evento.acao === "approved" ? "Aprovado" : "Ajuste pedido"} em {formatarDataHora(evento.em)}
+      </p>
+      {evento.comentario && <p className="mt-0.5 italic">“{evento.comentario}”</p>}
+      {evento.audioUrl && (
+        <audio
+          src={evento.audioUrl}
+          controls
+          preload="none"
+          className="mt-1 w-full max-w-xs"
+          aria-label="Áudio do cliente"
+        />
+      )}
+    </div>
   );
 }

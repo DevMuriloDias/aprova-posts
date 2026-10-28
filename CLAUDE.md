@@ -46,9 +46,13 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
   `revoke` do `anon`, RLS ligado e políticas para `authenticated`. O teste
   `tests/db/rls.test.ts` falha se alguma tabela de `public` ficar sem RLS.
 - Links mágicos: salvar só o hash SHA-256 do token (`approval_links.token_hash`), nunca o token.
-  O acesso do cliente passa só pelas funções `get_approval_page` e `register_approval`
-  (executáveis apenas pelo `service_role`), chamadas no servidor via `criarClienteAdmin()`.
-  Não use o cliente admin para nada além disso.
+  O acesso do cliente passa só pelas funções `get_approval_page`, `get_audio_upload_folder` e
+  `register_approval` (executáveis apenas pelo `service_role`), chamadas no servidor via
+  `criarClienteAdmin()`. O cliente admin só pode, além disso, assinar URLs das mídias que essas
+  funções devolvem e gravar o áudio na pasta devolvida por `get_audio_upload_folder`.
+- Status do post: só o cliente aprova ou pede ajuste (`register_approval`). O social media não tem
+  INSERT/UPDATE em `posts` nem em `post_slides`; cria e edita pelas funções `create_post` e
+  `update_post`, e toda edição gera uma nova versão que volta para aprovação.
 - Identidade visual própria: não usar logo, ícones, gradiente ou cores do Instagram.
 - Variáveis de ambiente: documentar em `.env.example` e validar em `src/lib/env.ts`.
 

@@ -30,7 +30,7 @@ language sql
 stable
 as $$
   select nullif(
-    current_setting('request.jwt.claims', true)::jsonb ->> 'sub',
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub',
     ''
   )::uuid
 $$;

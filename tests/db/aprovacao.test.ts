@@ -99,7 +99,10 @@ beforeAll(async () => {
   postSemData = await criarPost(ana, padaria, null);
   postAgendado = await criarPost(ana, padaria, "2026-11-05T12:00:00Z", 3);
   rascunho = await criarPost(ana, padaria, "2026-11-01T12:00:00Z");
+  // Rascunho não é criado pela interface; simulamos direto no banco.
+  await comoSuperusuario(db);
   await db.query("update public.posts set status = 'draft' where id = $1", [rascunho]);
+  await comoUsuario(db, ana);
   postAcademia = await criarPost(ana, academia, null);
   await db.query("select public.create_approval_link($1, $2)", [padaria, HASH_ANA]);
 

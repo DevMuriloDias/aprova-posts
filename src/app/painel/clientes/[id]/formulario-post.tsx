@@ -2,11 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
-import { BUCKET } from "@/lib/painel/constantes";
+import { enviarMidias, removerMidias } from "@/lib/painel/upload";
 import {
   MAXIMO_MIDIAS_POR_POST,
   TIPOS_MIDIA_ACEITOS,
-  caminhoDaMidia,
   problemaNoArquivo,
 } from "@/lib/painel/validacao";
 import { criarClienteNavegador } from "@/lib/supabase/client";
@@ -55,30 +54,12 @@ export function FormularioPost({ donoId, clienteId }: Props) {
     iniciar(async () => {
       const supabase = criarClienteNavegador();
       const postId = crypto.randomUUID();
-      const enviados: { caminho: string; tipo: "image" | "video" }[] = [];
-
-      for (const [i, arquivo] of arquivos.entries()) {
-        setProgresso(`Enviando ${i + 1} de ${arquivos.length}…`);
-        const caminho = caminhoDaMidia(
-          donoId,
-          clienteId,
-          postId,
-          i,
-          arquivo.name,
-          crypto.randomUUID().slice(0, 8),
-        );
-        const { error } = await supabase.storage
-          .from(BUCKET)
-          .upload(caminho, arquivo, { contentType: arquivo.type });
-        if (error) {
-          await limpar(enviados);
-          setProgresso(null);
-          return setErro(`Não foi possível enviar "${arquivo.name}". Tente novamente.`);
-        }
-        enviados.push({
-          caminho,
-          tipo: TIPOS_MIDIA_ACEITOS[arquivo.type as keyof typeof TIPOS_MIDIA_ACEITOS],
-        });
+      const envio = await enviarMidias(supabase, { donoId, clienteId, postId }, arquivos, (n, total) =>
+        setProgresso(`Enviando ${n} de ${total}…`),
+      );
+      if (!envio.ok) {
+        setProgresso(null);
+        return setErro(envio.erro);
       }
 
       setProgresso("Salvando…");
@@ -88,24 +69,17 @@ export function FormularioPost({ donoId, clienteId }: Props) {
         legenda: String(form.get("legenda") ?? ""),
         // datetime-local não tem fuso: convertemos no navegador, que sabe o fuso local.
         agendadoPara: agendado ? new Date(agendado).toISOString() : undefined,
-        midias: enviados,
+        midias: envio.midias,
       });
       setProgresso(null);
       if (!r.ok) {
-        await limpar(enviados);
+        await removerMidias(supabase, envio.midias);
         return setErro(r.erro);
       }
       setArquivos([]);
       setChave((k) => k + 1);
       setAberto(false);
     });
-
-    async function limpar(lista: { caminho: string }[]) {
-      if (lista.length === 0) return;
-      await criarClienteNavegador()
-        .storage.from(BUCKET)
-        .remove(lista.map((m) => m.caminho));
-    }
   }
 
   return (

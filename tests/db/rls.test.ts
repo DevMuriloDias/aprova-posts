@@ -50,14 +50,14 @@ async function popular(): Promise<Dados> {
   const clienteDaAna = await umValor<string>(
     "insert into public.clients (name, instagram_handle) values ('Padaria Pão Quente', 'paoquente') returning id",
   );
-  const postDaAna = await umValor<string>(
-    "insert into public.posts (client_id, caption) values ($1, 'Promoção de sexta!') returning id",
-    [clienteDaAna],
-  );
-  const slideDaAna = await umValor<string>(
-    "insert into public.post_slides (post_id, position, storage_path) values ($1, 0, $2) returning id",
-    [postDaAna, `${ana}/${clienteDaAna}/${postDaAna}/1.jpg`],
-  );
+  // Posts e mídias só são criados pela função create_post.
+  const postDaAna = crypto.randomUUID();
+  await db.query("select public.create_post($1, $2, 'Promoção de sexta!', null, $3)", [
+    postDaAna,
+    clienteDaAna,
+    JSON.stringify([{ media_type: "image", storage_path: `${ana}/${clienteDaAna}/${postDaAna}/1.jpg` }]),
+  ]);
+  const slideDaAna = await umValor<string>("select id from public.post_slides");
   const linkDaAna = await umValor<string>(
     "insert into public.approval_links (client_id, token_hash, expires_at) values ($1, $2, now() + interval '7 days') returning id",
     [clienteDaAna, hashFalso("a1")],
@@ -150,10 +150,7 @@ describe("isolamento entre social medias", () => {
     const alteracoes = [
       await db.query("update public.profiles set full_name = 'hack' where id = $1", [d.ana]),
       await db.query("update public.clients set name = 'hack' where id = $1", [d.clienteDaAna]),
-      await db.query("update public.posts set caption = 'hack' where id = $1", [d.postDaAna]),
-      await db.query("update public.post_slides set position = 5 where id = $1", [d.slideDaAna]),
       await db.query("update public.approval_links set revoked_at = now() where id = $1", [d.linkDaAna]),
-      await db.query("delete from public.post_slides where id = $1", [d.slideDaAna]),
       await db.query("delete from public.posts where id = $1", [d.postDaAna]),
       await db.query("delete from public.approval_links where id = $1", [d.linkDaAna]),
       await db.query("delete from public.clients where id = $1", [d.clienteDaAna]),
@@ -176,28 +173,15 @@ describe("isolamento entre social medias", () => {
     ).rejects.toThrow(/row-level security/);
   });
 
-  it("o Bruno não consegue criar post no cliente da Ana", async () => {
+  it("o Bruno não consegue criar post nem link no cliente da Ana", async () => {
     await comoUsuario(db, d.bruno);
-    // Com o próprio owner_id, a FK composta bloqueia.
+    // create_post grava sempre com o owner_id de quem chamou: a FK composta bloqueia.
     await expect(
-      db.query("insert into public.posts (client_id) values ($1)", [d.clienteDaAna]),
-    ).rejects.toThrow(/foreign key/);
-    // Com o owner_id da Ana, o RLS bloqueia.
-    await expect(
-      db.query("insert into public.posts (owner_id, client_id) values ($1, $2)", [
-        d.ana,
+      db.query("select public.create_post($1, $2, '', null, $3)", [
+        crypto.randomUUID(),
         d.clienteDaAna,
+        JSON.stringify([{ media_type: "image", storage_path: `${d.bruno}/x.jpg` }]),
       ]),
-    ).rejects.toThrow(/row-level security/);
-  });
-
-  it("o Bruno não consegue criar slide nem link para dados da Ana", async () => {
-    await comoUsuario(db, d.bruno);
-    await expect(
-      db.query(
-        "insert into public.post_slides (post_id, position, storage_path) values ($1, 1, $2)",
-        [d.postDaAna, `${d.bruno}/x.jpg`],
-      ),
     ).rejects.toThrow(/foreign key/);
     await expect(
       db.query(
@@ -205,6 +189,15 @@ describe("isolamento entre social medias", () => {
         [d.clienteDaAna, hashFalso("b1")],
       ),
     ).rejects.toThrow(/foreign key/);
+  });
+
+  it("o Bruno não consegue editar o post da Ana pela update_post", async () => {
+    await comoUsuario(db, d.bruno);
+    await expect(
+      db.query("select public.update_post($1, 'hack', null)", [d.postDaAna]),
+    ).rejects.toThrow(/post_nao_encontrado/);
+    await comoUsuario(db, d.ana);
+    expect(await umValor("select caption from public.posts")).toBe("Promoção de sexta!");
   });
 
   it("a Ana não consegue transferir um cliente para o Bruno", async () => {
@@ -217,11 +210,37 @@ describe("isolamento entre social medias", () => {
   it("slide só aponta para arquivos na pasta do próprio dono", async () => {
     await comoUsuario(db, d.ana);
     await expect(
-      db.query(
-        "insert into public.post_slides (post_id, position, storage_path) values ($1, 1, $2)",
-        [d.postDaAna, `${d.bruno}/arquivo.jpg`],
-      ),
+      db.query("select public.update_post($1, '', null, $2)", [
+        d.postDaAna,
+        JSON.stringify([{ media_type: "image", storage_path: `${d.bruno}/arquivo.jpg` }]),
+      ]),
     ).rejects.toThrow(/check constraint/);
+  });
+});
+
+describe("integridade do status (só o cliente aprova)", () => {
+  it("o social media não altera posts nem mídias direto na tabela", async () => {
+    await comoUsuario(db, d.ana);
+    for (const sql of [
+      "update public.posts set status = 'approved'",
+      "update public.posts set caption = 'trocada sem reenviar'",
+      "update public.post_slides set storage_path = storage_path",
+      "delete from public.post_slides",
+    ]) {
+      await expect(db.query(sql), sql).rejects.toThrow(/permission denied/);
+    }
+    await expect(
+      db.query("insert into public.posts (client_id, status) values ($1, 'approved')", [
+        d.clienteDaAna,
+      ]),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it("o social media ainda pode apagar o próprio post (as mídias vão junto)", async () => {
+    await comoUsuario(db, d.ana);
+    await db.query("delete from public.posts where id = $1", [d.postDaAna]);
+    expect(await contar("posts")).toBe(0);
+    expect(await contar("post_slides")).toBe(0);
   });
 });
 

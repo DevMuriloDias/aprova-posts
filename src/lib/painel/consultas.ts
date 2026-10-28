@@ -51,13 +51,22 @@ export async function listarClientes(): Promise<ClienteNaLista[]> {
   }));
 }
 
-export type EventoNoPainel = { acao: Decisao; comentario: string | null; em: string };
+export type EventoNoPainel = {
+  acao: Decisao;
+  comentario: string | null;
+  audioUrl: string | null;
+  /** Versão do post que o cliente avaliou. */
+  versao: number;
+  em: string;
+};
 
 export type PostNoPainel = {
   id: string;
   legenda: string;
   status: StatusPost;
   agendadoPara: string | null;
+  versao: number;
+  reenviadoEm: string | null;
   capaUrl: string | null;
   capaTipo: "image" | "video" | null;
   totalMidias: number;
@@ -87,9 +96,9 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
     .from("clients")
     .select(
       `id, name, instagram_handle, avatar_path,
-       posts(id, caption, status, scheduled_for, created_at,
+       posts(id, caption, status, scheduled_for, created_at, version, resubmitted_at,
          post_slides(position, media_type, storage_path),
-         approval_events(action, comment, created_at))`,
+         approval_events(action, comment, audio_path, post_version, created_at))`,
     )
     .eq("id", clienteId)
     .maybeSingle();
@@ -110,6 +119,7 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
   const urls = await assinar(supabase, [
     ...(cliente.avatar_path ? [cliente.avatar_path] : []),
     ...capas.flatMap((c) => (c ? [c.storage_path] : [])),
+    ...posts.flatMap((p) => p.approval_events.flatMap((e) => (e.audio_path ? [e.audio_path] : []))),
   ]);
 
   const link = links?.[0];
@@ -132,12 +142,20 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
       legenda: p.caption,
       status: p.status,
       agendadoPara: p.scheduled_for,
+      versao: p.version,
+      reenviadoEm: p.resubmitted_at,
       capaUrl: capas[i] ? (urls.get(capas[i].storage_path) ?? null) : null,
       capaTipo: capas[i]?.media_type ?? null,
       totalMidias: p.post_slides.length,
       historico: [...p.approval_events]
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
-        .map((e) => ({ acao: e.action, comentario: e.comment, em: e.created_at })),
+        .map((e) => ({
+          acao: e.action,
+          comentario: e.comment,
+          audioUrl: e.audio_path ? (urls.get(e.audio_path) ?? null) : null,
+          versao: e.post_version,
+          em: e.created_at,
+        })),
     })),
   };
 }

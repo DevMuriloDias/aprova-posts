@@ -70,6 +70,34 @@ export function esquemaNovoPost(donoId: string) {
     );
 }
 
+/** Edição: mesmas regras do post novo, mas as mídias são opcionais (sem elas, ficam as atuais). */
+export function esquemaEdicaoPost(donoId: string) {
+  return z
+    .object({
+      id: z.uuid(),
+      clienteId: z.uuid(),
+      legenda: z.string().max(2200, "A legenda pode ter no máximo 2.200 caracteres."),
+      agendadoPara: z
+        .string()
+        .optional()
+        .transform((v) => (v ? v : null))
+        .refine((v) => v === null || !Number.isNaN(Date.parse(v)), {
+          message: "Data de publicação inválida.",
+        }),
+      midias: z
+        .array(z.object({ caminho: z.string().min(1), tipo: z.enum(["image", "video"]) }))
+        .min(1, "Adicione pelo menos uma foto ou vídeo.")
+        .max(MAXIMO_MIDIAS_POR_POST, `Um post pode ter no máximo ${MAXIMO_MIDIAS_POR_POST} mídias.`)
+        .optional(),
+    })
+    .refine(
+      (d) =>
+        !d.midias ||
+        d.midias.every((m) => m.caminho.startsWith(pastaDoDono(donoId, d.clienteId, d.id))),
+      { path: ["midias"], message: "Mídia inválida." },
+    );
+}
+
 /** Caminho no bucket: <dono>/<cliente>/<post>/<n>-<aleatório>.<ext> */
 export function caminhoDaMidia(
   donoId: string,

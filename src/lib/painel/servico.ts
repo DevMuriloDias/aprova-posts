@@ -1,5 +1,5 @@
 import { gerarToken, hashDoToken, urlDoLink } from "@/lib/links/token";
-import { esquemaNovoCliente, esquemaNovoPost } from "./validacao";
+import { esquemaEdicaoPost, esquemaNovoCliente, esquemaNovoPost } from "./validacao";
 
 export type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string };
 
@@ -67,6 +67,42 @@ export async function criarPost(
   });
   if (error) return { ok: false, erro: ERRO_GENERICO };
   return { ok: true };
+}
+
+export type EntradaEdicao = Omit<EntradaPost, "midias"> & { midias?: EntradaPost["midias"] };
+
+/**
+ * Edita o post e o devolve para aprovação do cliente (nova versão).
+ * Retorna os caminhos das mídias que saíram, para apagar do storage.
+ */
+export async function editarPost(
+  entrada: EntradaEdicao,
+  donoId: string,
+  rpcEditarPost: (args: {
+    p_id: string;
+    p_caption: string;
+    p_scheduled_for: string | null;
+    p_slides: { storage_path: string; media_type: "image" | "video" }[] | null;
+  }) => Promise<RespostaBanco & { data: string[] | null }>,
+): Promise<Resultado<{ removidos: string[] }>> {
+  const dados = esquemaEdicaoPost(donoId).safeParse(entrada);
+  if (!dados.success) return { ok: false, erro: primeiroErro(dados.error.issues) };
+
+  const { data, error } = await rpcEditarPost({
+    p_id: dados.data.id,
+    p_caption: dados.data.legenda,
+    p_scheduled_for: dados.data.agendadoPara ? new Date(dados.data.agendadoPara).toISOString() : null,
+    p_slides: dados.data.midias
+      ? dados.data.midias.map((m) => ({ storage_path: m.caminho, media_type: m.tipo }))
+      : null,
+  });
+  if (error) {
+    return {
+      ok: false,
+      erro: error.message.includes("post_nao_encontrado") ? "Post não encontrado." : ERRO_GENERICO,
+    };
+  }
+  return { ok: true, removidos: data ?? [] };
 }
 
 export async function gerarLink(

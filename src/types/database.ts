@@ -50,6 +50,8 @@ export type Database = {
           caption: string;
           status: Database["public"]["Enums"]["post_status"];
           scheduled_for: string | null;
+          version: number;
+          resubmitted_at: string | null;
         } & Timestamps;
         Insert: {
           id?: string;
@@ -145,6 +147,8 @@ export type Database = {
           approval_link_id: string | null;
           action: Database["public"]["Enums"]["approval_action"];
           comment: string | null;
+          audio_path: string | null;
+          post_version: number;
           created_at: string;
         };
         Insert: never;
@@ -180,12 +184,26 @@ export type Database = {
         Args: { p_token_hash: string };
         Returns: Json;
       };
+      update_post: {
+        Args: {
+          p_id: string;
+          p_caption: string;
+          p_scheduled_for: string | null;
+          p_slides?: Json | null;
+        };
+        Returns: string[];
+      };
+      get_audio_upload_folder: {
+        Args: { p_token_hash: string; p_post_id: string };
+        Returns: string;
+      };
       register_approval: {
         Args: {
           p_token_hash: string;
           p_post_id: string;
           p_action: Database["public"]["Enums"]["approval_action"];
           p_comment?: string | null;
+          p_audio_path?: string | null;
         };
         Returns: Database["public"]["Tables"]["approval_events"]["Row"];
       };

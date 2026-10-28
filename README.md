@@ -97,7 +97,15 @@ O papel `anon` não tem acesso a nenhuma tabela nem função.
    só os posts daquele cliente. As mídias são exibidas por URLs assinadas válidas por 1 hora.
 4. Cada **Aprovar** / **Pedir ajuste** chama `register_approval`, que valida o link de novo,
    grava em `approval_events` (com data e hora) e atualiza o status do post.
-5. O painel mostra o status de cada post, o último comentário e o histórico.
+5. O painel mostra o status de cada post, o último comentário (ou áudio) e o histórico.
+
+**Áudio:** no "Pedir ajuste", o cliente pode escrever, gravar um áudio de até 3 minutos, ou os
+dois. O servidor valida o link (`get_audio_upload_folder`), grava o arquivo na pasta do post no
+bucket e só então registra o evento; se o registro falhar, o áudio é apagado.
+
+**Editar e reenviar:** no painel, "Ajustar e reenviar" (ou "Editar") troca a legenda, a data e,
+se quiser, as mídias. O post ganha uma nova versão e volta para "Aguardando aprovação"; o cliente
+vê o aviso "Post ajustado" com o que tinha pedido. Cada resposta guarda a versão avaliada.
 
 A página do link envia `Referrer-Policy: no-referrer` (o token não vaza para outros sites),
 `X-Robots-Tag: noindex` e `Cache-Control: private, no-store`.

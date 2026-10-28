@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { hashDoToken } from "@/lib/links/token";
-import { criarCliente, criarPost, gerarLink } from "./servico";
+import { criarCliente, criarPost, editarPost, gerarLink } from "./servico";
 
 const DONO = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OUTRO = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -116,6 +116,59 @@ describe("gerarLink", () => {
     expect(await gerarLink(CLIENTE, "https://a.com", rpc)).toEqual({
       ok: false,
       erro: "Cliente não encontrado.",
+    });
+  });
+});
+
+describe("editarPost", () => {
+  const midia = { caminho: `${DONO}/${CLIENTE}/${POST}/0-novo.jpg`, tipo: "image" as const };
+  const rpcOk = (removidos: string[] = []) => vi.fn().mockResolvedValue({ data: removidos, error: null });
+
+  it("sem mídias novas, mantém as atuais (p_slides null)", async () => {
+    const rpc = rpcOk();
+    const r = await editarPost(
+      { id: POST, clienteId: CLIENTE, legenda: "Corrigida", agendadoPara: "2026-11-05T15:00:00.000Z" },
+      DONO,
+      rpc,
+    );
+    expect(r).toEqual({ ok: true, removidos: [] });
+    expect(rpc).toHaveBeenCalledWith({
+      p_id: POST,
+      p_caption: "Corrigida",
+      p_scheduled_for: "2026-11-05T15:00:00.000Z",
+      p_slides: null,
+    });
+  });
+
+  it("com mídias novas, envia a lista e devolve as que saíram", async () => {
+    const rpc = rpcOk([`${DONO}/${CLIENTE}/${POST}/0-velha.jpg`]);
+    const r = await editarPost(
+      { id: POST, clienteId: CLIENTE, legenda: "", midias: [midia] },
+      DONO,
+      rpc,
+    );
+    expect(rpc.mock.calls[0][0].p_slides).toEqual([
+      { storage_path: midia.caminho, media_type: "image" },
+    ]);
+    expect(r).toEqual({ ok: true, removidos: [`${DONO}/${CLIENTE}/${POST}/0-velha.jpg`] });
+  });
+
+  it.each([
+    [{ midias: [] }, "Adicione pelo menos uma foto ou vídeo."],
+    [{ midias: [{ ...midia, caminho: `${OUTRO}/${CLIENTE}/${POST}/0.jpg` }] }, "Mídia inválida."],
+    [{ legenda: "x".repeat(2201) }, "A legenda pode ter no máximo 2.200 caracteres."],
+  ])("valida %#", async (alteracao, erro) => {
+    const rpc = rpcOk();
+    const r = await editarPost({ id: POST, clienteId: CLIENTE, legenda: "", ...alteracao }, DONO, rpc);
+    expect(r).toEqual({ ok: false, erro });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("traduz post de outro social media", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "post_nao_encontrado" } });
+    expect(await editarPost({ id: POST, clienteId: CLIENTE, legenda: "" }, DONO, rpc)).toEqual({
+      ok: false,
+      erro: "Post não encontrado.",
     });
   });
 });

@@ -22,6 +22,8 @@ export const esquemaPaginaBanco = z.discriminatedUnion("state", [
         caption: z.string(),
         status: z.enum(STATUS_VISIVEIS),
         scheduled_for: z.string().nullable(),
+        version: z.number().int().min(1),
+        resubmitted_at: z.string().nullable(),
         slides: z.array(
           z.object({
             position: z.number(),
@@ -33,6 +35,8 @@ export const esquemaPaginaBanco = z.discriminatedUnion("state", [
           .object({
             action: z.enum(["approved", "changes_requested"]),
             comment: z.string().nullable(),
+            audio_path: z.string().nullable(),
+            post_version: z.number().int().min(1),
             created_at: z.string(),
           })
           .nullable(),
@@ -43,13 +47,24 @@ export const esquemaPaginaBanco = z.discriminatedUnion("state", [
 
 export type Midia = { tipo: "image" | "video"; url: string | null };
 
-export type UltimaDecisao = { acao: Decisao; comentario: string | null; em: string };
+export type UltimaDecisao = {
+  acao: Decisao;
+  comentario: string | null;
+  /** URL assinada (temporária) do áudio do pedido de ajuste. */
+  audioUrl: string | null;
+  /** Versão do post que o cliente avaliou. */
+  versao: number;
+  em: string;
+};
 
 export type PostParaAprovar = {
   id: string;
   legenda: string;
   status: Exclude<StatusPost, "draft">;
   agendadoPara: string | null;
+  /** Começa em 1 e sobe a cada edição do social media. */
+  versao: number;
+  reenviadoEm: string | null;
   midias: Midia[];
   ultimaDecisao: UltimaDecisao | null;
 };
