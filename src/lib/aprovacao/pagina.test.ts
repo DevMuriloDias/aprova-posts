@@ -14,6 +14,8 @@ const paginaAtiva = {
       caption: "Promoção!",
       status: "changes_requested",
       scheduled_for: null,
+      version: 2,
+      resubmitted_at: "2026-10-28T09:00:00+00:00",
       slides: [
         { position: 0, media_type: "image", storage_path: "dono/cli/p/0.jpg" },
         { position: 1, media_type: "video", storage_path: "dono/cli/p/1.mp4" },
@@ -21,6 +23,8 @@ const paginaAtiva = {
       last_event: {
         action: "changes_requested",
         comment: "Trocar a foto",
+        audio_path: "dono/cli/p/audios/a.webm",
+        post_version: 1,
         created_at: "2026-10-27T12:00:00+00:00",
       },
     },
@@ -69,6 +73,7 @@ describe("carregarPaginaAprovacao", () => {
       "dono/cli/avatar.jpg",
       "dono/cli/p/0.jpg",
       "dono/cli/p/1.mp4",
+      "dono/cli/p/audios/a.webm",
     ]);
     expect(pagina).toEqual({
       estado: "ativo",
@@ -84,6 +89,8 @@ describe("carregarPaginaAprovacao", () => {
           legenda: "Promoção!",
           status: "changes_requested",
           agendadoPara: null,
+          versao: 2,
+          reenviadoEm: "2026-10-28T09:00:00+00:00",
           midias: [
             { tipo: "image", url: "https://cdn/dono/cli/p/0.jpg?assinado" },
             { tipo: "video", url: "https://cdn/dono/cli/p/1.mp4?assinado" },
@@ -91,6 +98,8 @@ describe("carregarPaginaAprovacao", () => {
           ultimaDecisao: {
             acao: "changes_requested",
             comentario: "Trocar a foto",
+            audioUrl: "https://cdn/dono/cli/p/audios/a.webm?assinado",
+            versao: 1,
             em: "2026-10-27T12:00:00+00:00",
           },
         },

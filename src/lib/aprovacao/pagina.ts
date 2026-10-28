@@ -28,6 +28,7 @@ export async function carregarPaginaAprovacao(
   const caminhos = [
     ...(pagina.client.avatar_path ? [pagina.client.avatar_path] : []),
     ...pagina.posts.flatMap((p) => p.slides.map((s) => s.storage_path)),
+    ...pagina.posts.flatMap((p) => (p.last_event?.audio_path ? [p.last_event.audio_path] : [])),
   ];
   const urls = caminhos.length > 0 ? await deps.assinarUrls(caminhos) : new Map<string, string>();
 
@@ -44,6 +45,8 @@ export async function carregarPaginaAprovacao(
       legenda: p.caption,
       status: p.status,
       agendadoPara: p.scheduled_for,
+      versao: p.version,
+      reenviadoEm: p.resubmitted_at,
       midias: p.slides.map((s) => ({
         tipo: s.media_type,
         url: urls.get(s.storage_path) ?? null,
@@ -52,6 +55,8 @@ export async function carregarPaginaAprovacao(
         ? {
             acao: p.last_event.action,
             comentario: p.last_event.comment,
+            audioUrl: p.last_event.audio_path ? (urls.get(p.last_event.audio_path) ?? null) : null,
+            versao: p.last_event.post_version,
             em: p.last_event.created_at,
           }
         : null,

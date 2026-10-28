@@ -1,16 +1,36 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { PostParaAprovar, ResultadoDecisao } from "@/lib/aprovacao/tipos";
+import type { PostParaAprovar, ResultadoDecisao, UltimaDecisao } from "@/lib/aprovacao/tipos";
 import { AprovacaoCliente } from "./aprovacao-cliente";
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
   Element.prototype.scrollTo = vi.fn() as unknown as typeof Element.prototype.scrollTo;
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+/** Campos enviados na chamada `n` de decidir (FormData). */
+function enviado(decidir: ReturnType<typeof vi.fn>, n = 0) {
+  const dados = decidir.mock.calls[n][0] as FormData;
+  return Object.fromEntries(dados.entries());
+}
+
+function decisao(extra: Partial<UltimaDecisao> = {}): UltimaDecisao {
+  return {
+    acao: "approved",
+    comentario: null,
+    audioUrl: null,
+    versao: 1,
+    em: "2026-10-27T18:00:00Z",
+    ...extra,
+  };
+}
 
 const cliente = { nome: "Padaria do Bairro", instagram: "padariadobairro", avatarUrl: null };
 
@@ -20,6 +40,8 @@ function post(id: string, extra: Partial<PostParaAprovar> = {}): PostParaAprovar
     legenda: `Legenda do post ${id}`,
     status: "pending_approval",
     agendadoPara: null,
+    versao: 1,
+    reenviadoEm: null,
     midias: [{ tipo: "image", url: `https://cdn/${id}.jpg` }],
     ultimaDecisao: null,
     ...extra,
@@ -35,15 +57,18 @@ const posts = [
     ],
     agendadoPara: "2026-11-05T15:00:00Z",
   }),
-  post("p2", { status: "approved", ultimaDecisao: { acao: "approved", comentario: null, em: "2026-10-27T17:32:00Z" } }),
+  post("p2", { status: "approved", ultimaDecisao: decisao({ em: "2026-10-27T17:32:00Z" }) }),
   post("p3"),
 ];
 
-function renderizar(decidir = vi.fn<(...a: unknown[]) => Promise<ResultadoDecisao>>()) {
+function renderizar(
+  decidir = vi.fn<(dados: FormData) => Promise<ResultadoDecisao>>(),
+  postsIniciais = posts,
+) {
   render(
     <AprovacaoCliente
       cliente={cliente}
-      postsIniciais={posts}
+      postsIniciais={postsIniciais}
       expiraEm="2026-11-26T12:00:00Z"
       decidir={decidir}
     />,
@@ -82,35 +107,41 @@ describe("página de aprovação do cliente", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         status: "approved",
-        decisao: { acao: "approved", comentario: null, em: "2026-10-27T18:00:00Z" },
+        decisao: decisao(),
       }),
     );
     await userEvent.click(within(cartao(0)).getByRole("button", { name: "Aprovar" }));
 
-    expect(decidir).toHaveBeenCalledWith("p1", "approved", undefined);
+    expect(enviado(decidir)).toEqual({ postId: "p1", acao: "approved" });
     expect(await screen.findByText("2 de 3 posts aprovados")).toBeInTheDocument();
     expect(within(cartao(0)).getByText("Você aprovou em 27/10/2026 às 15:00")).toBeInTheDocument();
     expect(within(cartao(0)).getByRole("button", { name: "Aprovado ✓" })).toBeDisabled();
   });
 
-  it("pedir ajuste exige o texto e envia o comentário", async () => {
+  it("pedir ajuste exige texto ou áudio e envia o comentário", async () => {
     const decidir = renderizar(
       vi.fn().mockResolvedValue({
         ok: true,
         status: "changes_requested",
-        decisao: { acao: "changes_requested", comentario: "Trocar a foto", em: "2026-10-27T18:00:00Z" },
+        decisao: decisao({ acao: "changes_requested", comentario: "Trocar a foto" }),
       }),
     );
     const terceiro = cartao(2);
     await userEvent.click(within(terceiro).getByRole("button", { name: "Pedir ajuste" }));
     await userEvent.click(within(terceiro).getByRole("button", { name: "Enviar ajuste" }));
-    expect(within(terceiro).getByRole("alert")).toHaveTextContent("Conte o que precisa ser ajustado.");
+    expect(within(terceiro).getByRole("alert")).toHaveTextContent(
+      "Escreva o que precisa ajustar ou grave um áudio.",
+    );
     expect(decidir).not.toHaveBeenCalled();
 
-    await userEvent.type(within(terceiro).getByLabelText("O que precisa ajustar?"), "Trocar a foto");
+    await userEvent.type(within(terceiro).getByLabelText(/O que precisa ajustar/), "Trocar a foto");
     await userEvent.click(within(terceiro).getByRole("button", { name: "Enviar ajuste" }));
 
-    expect(decidir).toHaveBeenCalledWith("p3", "changes_requested", "Trocar a foto");
+    expect(enviado(decidir)).toEqual({
+      postId: "p3",
+      acao: "changes_requested",
+      comentario: "Trocar a foto",
+    });
     expect(await within(terceiro).findByText("Ajuste pedido")).toBeInTheDocument();
     expect(within(terceiro).getByText("“Trocar a foto”")).toBeInTheDocument();
     expect(screen.getByText("1 com ajuste · 1 aguardando")).toBeInTheDocument();
@@ -143,5 +174,136 @@ describe("página de aprovação do cliente", () => {
 
     await userEvent.click(itens[2]);
     expect(screen.getByRole("tab", { name: "Posts" })).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("áudio no pedido de ajuste", () => {
+  class GravadorFalso {
+    static isTypeSupported = (tipo: string) => tipo === "audio/webm;codecs=opus";
+    state = "inactive";
+    mimeType: string;
+    ondataavailable: ((e: { data: Blob }) => void) | null = null;
+    onstop: (() => void) | null = null;
+    constructor(_fluxo: unknown, opcoes: { mimeType?: string }) {
+      this.mimeType = opcoes.mimeType ?? "";
+    }
+    start() {
+      this.state = "recording";
+    }
+    stop() {
+      this.state = "inactive";
+      this.ondataavailable?.({ data: new Blob(["voz"], { type: this.mimeType }) });
+      this.onstop?.();
+    }
+  }
+
+  function liberarMicrofone(permitir = true) {
+    const parar = vi.fn();
+    vi.stubGlobal("MediaRecorder", GravadorFalso);
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: permitir
+          ? vi.fn().mockResolvedValue({ getTracks: () => [{ stop: parar }] })
+          : vi.fn().mockRejectedValue(new Error("NotAllowedError")),
+      },
+    });
+    URL.createObjectURL = vi.fn(() => "blob:audio");
+    URL.revokeObjectURL = vi.fn();
+    return parar;
+  }
+
+  it("grava, mostra para ouvir e envia o áudio sem precisar escrever", async () => {
+    const pararMicrofone = liberarMicrofone();
+    const decidir = renderizar(
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: "changes_requested",
+        decisao: decisao({ acao: "changes_requested", audioUrl: "https://cdn/audio.webm" }),
+      }),
+    );
+    const terceiro = cartao(2);
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Pedir ajuste" }));
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Gravar áudio" }));
+    const parar = await within(terceiro).findByRole("button", { name: /Parar gravação/ });
+    await act(async () => userEvent.click(parar));
+
+    expect(pararMicrofone).toHaveBeenCalled();
+    expect(within(terceiro).getByText(/Áudio gravado/)).toBeInTheDocument();
+    expect(terceiro.querySelector("audio")).toHaveAttribute("src", "blob:audio");
+
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Enviar ajuste" }));
+    const campos = enviado(decidir);
+    expect(campos).toMatchObject({ postId: "p3", acao: "changes_requested" });
+    expect(campos.comentario).toBeUndefined();
+    expect(campos.audio).toBeInstanceOf(Blob);
+    expect((campos.audio as Blob).type).toBe("audio/webm;codecs=opus");
+
+    expect(await within(terceiro).findByText("Ajuste pedido")).toBeInTheDocument();
+    expect(within(terceiro).getByLabelText("Áudio do pedido de ajuste")).toHaveAttribute(
+      "src",
+      "https://cdn/audio.webm",
+    );
+  });
+
+  it("apagar o áudio volta a exigir texto ou áudio", async () => {
+    liberarMicrofone();
+    const decidir = renderizar(vi.fn());
+    const terceiro = cartao(2);
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Pedir ajuste" }));
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Gravar áudio" }));
+    await act(async () =>
+      userEvent.click(await within(terceiro).findByRole("button", { name: /Parar gravação/ })),
+    );
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Apagar áudio" }));
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Enviar ajuste" }));
+    expect(decidir).not.toHaveBeenCalled();
+    expect(within(terceiro).getByRole("alert")).toHaveTextContent(/grave um áudio/);
+  });
+
+  it("explica quando o microfone é bloqueado", async () => {
+    liberarMicrofone(false);
+    renderizar();
+    const terceiro = cartao(2);
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Pedir ajuste" }));
+    await userEvent.click(within(terceiro).getByRole("button", { name: "Gravar áudio" }));
+    expect(await within(terceiro).findByRole("alert")).toHaveTextContent(
+      /Permita o acesso ao microfone/,
+    );
+  });
+});
+
+describe("post ajustado e reenviado", () => {
+  it("mostra que o pedido foi atendido, com o que o cliente tinha pedido", () => {
+    renderizar(vi.fn(), [
+      post("p1", {
+        versao: 2,
+        reenviadoEm: "2026-10-28T13:00:00Z",
+        ultimaDecisao: decisao({
+          acao: "changes_requested",
+          comentario: "Trocar a foto",
+          audioUrl: "https://cdn/a.webm",
+          versao: 1,
+        }),
+      }),
+    ]);
+    const aviso = within(cartao(0)).getByRole("status");
+    expect(aviso).toHaveTextContent("Post ajustado em 28/10/2026 às 10:00. Confira a nova versão.");
+    expect(aviso).toHaveTextContent("Você tinha pedido: “Trocar a foto”");
+    expect(aviso.querySelector("audio")).toHaveAttribute("src", "https://cdn/a.webm");
+    expect(within(cartao(0)).getByRole("button", { name: "Aprovar" })).toBeEnabled();
+  });
+
+  it("avisa quando um post aprovado foi alterado", () => {
+    renderizar(vi.fn(), [
+      post("p1", {
+        versao: 2,
+        reenviadoEm: "2026-10-28T13:00:00Z",
+        ultimaDecisao: decisao({ acao: "approved", versao: 1 }),
+      }),
+    ]);
+    expect(within(cartao(0)).getByRole("status")).toHaveTextContent(
+      "Este post foi alterado em 28/10/2026 às 10:00, depois da sua aprovação. Confira de novo.",
+    );
   });
 });
