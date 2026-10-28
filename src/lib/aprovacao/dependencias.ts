@@ -1,4 +1,8 @@
 import "server-only";
+import { after } from "next/server";
+import { envPublico } from "@/lib/env";
+import { configEmail } from "@/lib/env-servidor";
+import { enviarPeloResend, notificarDecisao } from "@/lib/notificacoes/email";
 import { BUCKET as BUCKET_MIDIAS } from "@/lib/painel/constantes";
 import type { ClienteAdmin } from "@/lib/supabase/admin";
 import type { DependenciasPagina } from "./pagina";
@@ -72,6 +76,22 @@ export function dependenciasDecisao(admin: ClienteAdmin): DependenciasDecisao<Bl
     async assinar(caminho) {
       const { data } = await bucket().createSignedUrl(caminho, VALIDADE_URL_SEGUNDOS);
       return data?.signedUrl ?? null;
+    },
+    aposRegistrar(eventoId) {
+      const email = configEmail();
+      if (!email) return;
+      // Depois da resposta: o cliente não espera o e-mail sair.
+      after(() =>
+        notificarDecisao(eventoId, {
+          siteUrl: envPublico().NEXT_PUBLIC_SITE_URL,
+          enviar: (aviso) => enviarPeloResend(email, aviso),
+          async buscarInfo(id) {
+            const { data, error } = await admin.rpc("get_event_notification", { p_event_id: id });
+            if (error) throw new Error(error.message);
+            return data;
+          },
+        }),
+      );
     },
   };
 }

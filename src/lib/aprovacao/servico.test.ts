@@ -10,6 +10,7 @@ type Audio = { type: string; size: number };
 
 function evento(extra: Partial<EventoRegistrado> = {}): EventoRegistrado {
   return {
+    id: "evt-1",
     action: "approved",
     comment: null,
     audio_path: null,
@@ -214,5 +215,25 @@ describe("registrarDecisao com áudio", () => {
     );
     expect(r).toEqual({ ok: false, erro: MENSAGENS.linkInvalido });
     expect(d.removerAudio).toHaveBeenCalledWith(`${PASTA}abc.webm`);
+  });
+});
+
+describe("aviso ao social media", () => {
+  it("chama aposRegistrar com o id do evento gravado", async () => {
+    const aposRegistrar = vi.fn();
+    await registrarDecisao(
+      { token: gerarToken(), postId: POST_ID, acao: "approved" },
+      deps({ aposRegistrar }),
+    );
+    expect(aposRegistrar).toHaveBeenCalledWith("evt-1");
+  });
+
+  it("não avisa quando a resposta não foi gravada", async () => {
+    const aposRegistrar = vi.fn();
+    await registrarDecisao(
+      { token: gerarToken(), postId: POST_ID, acao: "approved" },
+      deps({ aposRegistrar, registrar: vi.fn().mockResolvedValue({ ok: false, mensagem: "link_invalido" }) }),
+    );
+    expect(aposRegistrar).not.toHaveBeenCalled();
   });
 });

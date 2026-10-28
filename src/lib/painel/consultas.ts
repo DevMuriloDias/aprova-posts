@@ -3,6 +3,7 @@ import { BUCKET_MIDIAS } from "@/lib/aprovacao/dependencias";
 import { resumir, type Resumo } from "@/lib/aprovacao/progresso";
 import type { Decisao, StatusPost } from "@/lib/aprovacao/tipos";
 import { criarClienteSupabase } from "@/lib/supabase/server";
+import { LIMITE_NOVIDADES, mapearNovidades, type LinhaNovidade } from "./novidades";
 import { ordemDePublicacao } from "./ordem";
 
 type Supabase = Awaited<ReturnType<typeof criarClienteSupabase>>;
@@ -158,4 +159,44 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
         })),
     })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Novidades (respostas dos clientes)
+// ---------------------------------------------------------------------------
+
+/** Quando o social media viu as Novidades pela última vez. */
+async function vistoEm(supabase: Supabase): Promise<string> {
+  const { data } = await supabase.from("profiles").select("events_seen_at").maybeSingle();
+  return data?.events_seen_at ?? new Date().toISOString();
+}
+
+export async function contarNovidades(): Promise<number> {
+  const supabase = await criarClienteSupabase();
+  const desde = await vistoEm(supabase);
+  const { count } = await supabase
+    .from("approval_events")
+    .select("id", { count: "exact", head: true })
+    .gt("created_at", desde);
+  return count ?? 0;
+}
+
+export async function listarNovidades(desdeDaUrl: string | null) {
+  const supabase = await criarClienteSupabase();
+  const visto = desdeDaUrl ?? (await vistoEm(supabase));
+  const { data, error } = await supabase
+    .from("approval_events")
+    .select(
+      "id, action, comment, audio_path, post_version, created_at, posts(id, caption, client_id, clients(name))",
+    )
+    .order("created_at", { ascending: false })
+    .limit(LIMITE_NOVIDADES);
+  if (error) throw new Error(`Falha ao carregar as novidades: ${error.message}`);
+
+  const linhas = data as unknown as LinhaNovidade[];
+  const urls = await assinar(
+    supabase,
+    linhas.flatMap((l) => (l.audio_path ? [l.audio_path] : [])),
+  );
+  return { vistoEm: visto, itens: mapearNovidades(linhas, visto, urls) };
 }

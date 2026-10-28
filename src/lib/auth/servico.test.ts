@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { processarCadastro, processarEntrada, type AuthCliente } from "./servico";
+import {
+  MENSAGEM_REENVIO,
+  processarCadastro,
+  processarEntrada,
+  processarReenvio,
+  type AuthCliente,
+} from "./servico";
 
 function form(campos: Record<string, string>) {
   const fd = new FormData();
@@ -10,15 +16,18 @@ function form(campos: Record<string, string>) {
 function authFalso(respostas: {
   entrar?: { error: unknown };
   cadastrar?: { data: { session: unknown }; error: unknown };
+  reenviar?: { data: unknown; error: unknown };
 }) {
   return {
     signInWithPassword: vi.fn().mockResolvedValue(respostas.entrar ?? { data: {}, error: null }),
+    resend: vi.fn().mockResolvedValue(respostas.reenviar ?? { data: {}, error: null }),
     signUp: vi
       .fn()
       .mockResolvedValue(respostas.cadastrar ?? { data: { session: null, user: {} }, error: null }),
   } as unknown as AuthCliente & {
     signInWithPassword: ReturnType<typeof vi.fn>;
     signUp: ReturnType<typeof vi.fn>;
+    resend: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -151,5 +160,55 @@ describe("registro de erros no terminal", () => {
     await processarEntrada(auth, form({ email: "a@b.com", senha: "errada123" }));
     expect(log.mock.calls[0][0]).toBe("[auth] Falha ao entrar:");
     expect(JSON.stringify(log.mock.calls[0])).not.toContain("errada123");
+  });
+});
+
+describe("e-mail não confirmado e reenvio", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("ao entrar com e-mail não confirmado, oferece o reenvio", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = authFalso({ entrar: { error: { code: "email_not_confirmed" } } });
+    const r = await processarEntrada(auth, form({ email: "ana@exemplo.com", senha: "x" }));
+    expect(r).toMatchObject({ estado: { precisaConfirmar: true, valores: { email: "ana@exemplo.com" } } });
+  });
+
+  it("senha errada não oferece reenvio", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = authFalso({ entrar: { error: { code: "invalid_credentials" } } });
+    const r = await processarEntrada(auth, form({ email: "a@b.com", senha: "x" }));
+    expect(r.tipo === "estado" && r.estado.precisaConfirmar).toBeFalsy();
+  });
+
+  it("reenvia o e-mail de cadastro com o link de confirmação do site", async () => {
+    const auth = authFalso({});
+    const r = await processarReenvio(auth, form({ email: " Ana@Exemplo.com " }), "https://app.exemplo.com");
+    expect(auth.resend).toHaveBeenCalledWith({
+      type: "signup",
+      email: "ana@exemplo.com",
+      options: { emailRedirectTo: "https://app.exemplo.com/auth/confirm?proximo=%2Fpainel" },
+    });
+    expect(r).toEqual({ sucesso: MENSAGEM_REENVIO, valores: { email: "ana@exemplo.com" } });
+  });
+
+  it("valida o e-mail antes de chamar o Supabase", async () => {
+    const auth = authFalso({});
+    const r = await processarReenvio(auth, form({ email: "ana" }), "https://a.com");
+    expect(auth.resend).not.toHaveBeenCalled();
+    expect(r.erros?.email).toBe("Informe um e-mail válido.");
+  });
+
+  it("não revela se o e-mail existe: erros comuns viram a resposta neutra", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = authFalso({ reenviar: { data: null, error: { code: "user_not_found" } } });
+    const r = await processarReenvio(auth, form({ email: "nao@existe.com" }), "https://a.com");
+    expect(r.sucesso).toBe(MENSAGEM_REENVIO);
+  });
+
+  it("avisa quando passou do limite de envios", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = authFalso({ reenviar: { data: null, error: { code: "over_email_send_rate_limit" } } });
+    const r = await processarReenvio(auth, form({ email: "a@b.com" }), "https://a.com");
+    expect(r.erro).toMatch(/Aguarde alguns minutos/);
   });
 });

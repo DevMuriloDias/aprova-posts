@@ -44,6 +44,7 @@ export type EntradaDecisao<A extends AudioRecebido = AudioRecebido> = {
 };
 
 export type EventoRegistrado = {
+  id: string;
   action: Decisao;
   comment: string | null;
   audio_path: string | null;
@@ -64,6 +65,8 @@ export type DependenciasDecisao<A extends AudioRecebido = AudioRecebido> = {
     audioPath: string | null;
   }) => Promise<{ ok: true; evento: EventoRegistrado } | { ok: false; mensagem: string }>;
   assinar: (caminho: string) => Promise<string | null>;
+  /** Chamado depois de registrar (ex.: avisar o social media por e-mail). */
+  aposRegistrar?: (eventoId: string) => void;
   idAleatorio?: () => string;
 };
 
@@ -135,6 +138,8 @@ export async function registrarDecisao<A extends AudioRecebido>(
     if (audioPath) await deps.removerAudio(audioPath);
     return { ok: false, erro: traduzirErroBanco(r.mensagem) };
   }
+
+  deps.aposRegistrar?.(r.evento.id);
 
   return {
     ok: true,
