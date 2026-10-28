@@ -19,7 +19,7 @@ export function FormularioCliente({ donoId }: { donoId: string }) {
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="h-11 rounded-xl bg-indigo-600 px-4 font-semibold text-white hover:bg-indigo-700"
+        className="h-11 rounded-xl bg-marca-600 px-4 font-semibold text-white hover:bg-marca-700"
       >
         + Novo cliente
       </button>
@@ -75,7 +75,7 @@ export function FormularioCliente({ donoId }: { donoId: string }) {
           name="nome"
           required
           maxLength={120}
-          className="h-12 rounded-xl border border-zinc-300 px-4 text-base font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+          className="h-12 rounded-xl border border-zinc-300 px-4 text-base font-normal outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
         />
       </label>
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
@@ -86,7 +86,7 @@ export function FormularioCliente({ donoId }: { donoId: string }) {
           placeholder="padariadobairro"
           autoCapitalize="none"
           autoCorrect="off"
-          className="h-12 rounded-xl border border-zinc-300 px-4 text-base font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+          className="h-12 rounded-xl border border-zinc-300 px-4 text-base font-normal outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
         />
       </label>
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
@@ -109,7 +109,7 @@ export function FormularioCliente({ donoId }: { donoId: string }) {
         <button
           type="submit"
           disabled={pendente}
-          className="h-11 rounded-xl bg-indigo-600 font-semibold text-white disabled:opacity-60"
+          className="h-11 rounded-xl bg-marca-600 font-semibold text-white disabled:opacity-60"
         >
           {pendente ? "Salvando…" : "Salvar"}
         </button>

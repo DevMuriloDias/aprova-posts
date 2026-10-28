@@ -44,7 +44,7 @@ async function Conteudo() {
             <li key={c.id}>
               <Link
                 href={`/painel/clientes/${c.id}`}
-                className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-indigo-300"
+                className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-marca-300"
               >
                 <Avatar nome={c.nome} url={c.avatarUrl} />
                 <div className="min-w-0 flex-1">

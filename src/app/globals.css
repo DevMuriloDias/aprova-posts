@@ -1,7 +1,31 @@
 @import "tailwindcss";
 
+/*
+ * Identidade visual do Aprova Posts (própria, sem elementos do Instagram).
+ * marca: azul-petróleo · destaque: verde-limão · fundo: creme
+ */
+@theme {
+  --color-marca-50: #eef8f8;
+  --color-marca-100: #d3eeef;
+  --color-marca-200: #a8dcdf;
+  --color-marca-300: #72c2c7;
+  --color-marca-400: #3e9fa7;
+  --color-marca-500: #1f7f89;
+  --color-marca-600: #0e5a66;
+  --color-marca-700: #0b4954;
+  --color-marca-800: #093a43;
+  --color-marca-900: #072c33;
+
+  --color-destaque: #c8f169;
+  --color-destaque-forte: #a9d93a;
+  --color-destaque-tinta: #24300a;
+
+  --color-fundo: #f7f5f0;
+  --color-tinta: #1b1b18;
+}
+
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {

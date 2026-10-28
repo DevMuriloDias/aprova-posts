@@ -11,9 +11,23 @@ import {
 import { criarClienteNavegador } from "@/lib/supabase/client";
 import { acaoCriarPost } from "../../actions";
 
-type Props = { donoId: string; clienteId: string };
+type Props = {
+  donoId: string;
+  /** Cliente fixo (página do cliente). Sem ele, mostra a escolha de cliente. */
+  clienteId?: string;
+  clientes?: { id: string; nome: string }[];
+  /** Valor inicial do campo de data/hora, ex.: "2026-11-05T10:00". */
+  agendadoInicial?: string;
+  rotulo?: string;
+};
 
-export function FormularioPost({ donoId, clienteId }: Props) {
+export function FormularioPost({
+  donoId,
+  clienteId: clienteFixo,
+  clientes = [],
+  agendadoInicial,
+  rotulo = "+ Novo post",
+}: Props) {
   const [aberto, setAberto] = useState(false);
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -26,9 +40,9 @@ export function FormularioPost({ donoId, clienteId }: Props) {
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="h-11 w-full rounded-xl bg-indigo-600 px-4 font-semibold text-white hover:bg-indigo-700 sm:w-auto"
+        className="h-11 w-full rounded-xl bg-marca-600 px-4 font-semibold text-white hover:bg-marca-700 sm:w-auto"
       >
-        + Novo post
+        {rotulo}
       </button>
     );
   }
@@ -48,6 +62,8 @@ export function FormularioPost({ donoId, clienteId }: Props) {
 
   function enviar(form: FormData) {
     setErro(null);
+    const clienteId = clienteFixo ?? String(form.get("clienteId") ?? "");
+    if (!clienteId) return setErro("Escolha o cliente.");
     if (arquivos.length === 0) return setErro("Adicione pelo menos uma foto ou vídeo.");
     const agendado = String(form.get("agendadoPara") ?? "");
 
@@ -91,6 +107,27 @@ export function FormularioPost({ donoId, clienteId }: Props) {
       <h2 className="text-base font-bold text-zinc-900">Novo post</h2>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
 
+      {!clienteFixo && (
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
+          Cliente
+          <select
+            name="clienteId"
+            required
+            defaultValue={clientes.length === 1 ? clientes[0].id : ""}
+            className="h-12 rounded-xl border border-zinc-300 bg-white px-3 text-base font-normal outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
+          >
+            <option value="" disabled>
+              Escolha o cliente
+            </option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
         Fotos ou vídeos (na ordem do carrossel)
         <input
@@ -122,7 +159,7 @@ export function FormularioPost({ donoId, clienteId }: Props) {
           name="legenda"
           rows={5}
           maxLength={2200}
-          className="rounded-xl border border-zinc-300 p-3 text-base font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+          className="rounded-xl border border-zinc-300 p-3 text-base font-normal outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
         />
       </label>
 
@@ -131,7 +168,8 @@ export function FormularioPost({ donoId, clienteId }: Props) {
         <input
           type="datetime-local"
           name="agendadoPara"
-          className="h-12 rounded-xl border border-zinc-300 px-4 text-base font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+          defaultValue={agendadoInicial}
+          className="h-12 rounded-xl border border-zinc-300 px-4 text-base font-normal outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
         />
       </label>
 
@@ -147,7 +185,7 @@ export function FormularioPost({ donoId, clienteId }: Props) {
         <button
           type="submit"
           disabled={pendente}
-          className="h-11 rounded-xl bg-indigo-600 font-semibold text-white disabled:opacity-60"
+          className="h-11 rounded-xl bg-marca-600 font-semibold text-white disabled:opacity-60"
         >
           {pendente ? (progresso ?? "Enviando…") : "Enviar para aprovação"}
         </button>

@@ -107,7 +107,7 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
   }
 
   return (
-    <form action={salvar} className="mt-2 flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+    <form action={salvar} className="order-last mt-2 flex w-full flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
       {AVISOS[post.status] && <p className="text-xs text-zinc-600">{AVISOS[post.status]}</p>}
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
 
@@ -118,7 +118,7 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
           rows={5}
           maxLength={2200}
           defaultValue={post.legenda}
-          className="rounded-xl border border-zinc-300 bg-white p-3 text-base font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+          className="rounded-xl border border-zinc-300 bg-white p-3 text-base font-normal outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
         />
       </label>
 
@@ -128,7 +128,7 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
           type="datetime-local"
           name="agendadoPara"
           defaultValue={paraCampoDataHora(post.agendadoPara)}
-          className="h-12 rounded-xl border border-zinc-300 bg-white px-4 text-base font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+          className="h-12 rounded-xl border border-zinc-300 bg-white px-4 text-base font-normal outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-100"
         />
       </label>
 
@@ -164,7 +164,7 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
         <button
           type="submit"
           disabled={pendente}
-          className="h-11 rounded-xl bg-indigo-600 font-semibold text-white disabled:opacity-60"
+          className="h-11 rounded-xl bg-marca-600 font-semibold text-white disabled:opacity-60"
         >
           {pendente ? (progresso ?? "Salvando…") : "Salvar e reenviar"}
         </button>

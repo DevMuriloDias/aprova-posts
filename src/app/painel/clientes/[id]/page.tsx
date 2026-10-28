@@ -11,6 +11,7 @@ import { exigirUsuario } from "@/lib/auth/usuario";
 import { formatarDataCurta, formatarDataHora } from "@/lib/formatacao";
 import { detalharCliente, type EventoNoPainel, type PostNoPainel } from "@/lib/painel/consultas";
 import { EditorPost } from "./editor-post";
+import { ExcluirCliente, ExcluirPost } from "./excluir";
 import { FormularioPost } from "./formulario-post";
 import { SecaoLink } from "./secao-link";
 
@@ -71,6 +72,14 @@ async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="mt-4 flex flex-col gap-2 rounded-2xl border border-red-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-zinc-900">Excluir cliente</h2>
+          <p className="text-xs text-zinc-600">Apaga o cliente, os posts, as mídias e o histórico.</p>
+        </div>
+        <ExcluirCliente clienteId={cliente.id} nome={cliente.nome} totalPosts={cliente.posts.length} />
       </section>
     </div>
   );
@@ -137,17 +146,20 @@ function ItemPost({ post, donoId, clienteId }: PropsItem) {
         </details>
       )}
 
-      <EditorPost
-        donoId={donoId}
-        clienteId={clienteId}
-        post={{
-          id: post.id,
-          legenda: post.legenda,
-          agendadoPara: post.agendadoPara,
-          status: post.status,
-          totalMidias: post.totalMidias,
-        }}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <EditorPost
+          donoId={donoId}
+          clienteId={clienteId}
+          post={{
+            id: post.id,
+            legenda: post.legenda,
+            agendadoPara: post.agendadoPara,
+            status: post.status,
+            totalMidias: post.totalMidias,
+          }}
+        />
+        <ExcluirPost postId={post.id} clienteId={clienteId} />
+      </div>
     </li>
   );
 }

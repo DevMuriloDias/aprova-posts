@@ -40,7 +40,7 @@ export function AprovacaoCliente({ cliente, postsIniciais, expiraEm, decidir }: 
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 border-b border-zinc-200 bg-zinc-50/95 px-4 pb-0 pt-3 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-zinc-200 bg-fundo/95 px-4 pb-0 pt-3 backdrop-blur">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-sm font-semibold text-zinc-900" id="progresso-rotulo">
             {textoProgresso(resumo)}
@@ -85,7 +85,7 @@ export function AprovacaoCliente({ cliente, postsIniciais, expiraEm, decidir }: 
               onClick={() => setAba(valor)}
               className={`border-b-2 py-2.5 text-sm font-semibold transition ${
                 aba === valor
-                  ? "border-indigo-600 text-indigo-700"
+                  ? "border-marca-600 text-marca-700"
                   : "border-transparent text-zinc-500 hover:text-zinc-800"
               }`}
             >

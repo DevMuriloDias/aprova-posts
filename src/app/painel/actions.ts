@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { envPublico } from "@/lib/env";
 import { BUCKET } from "@/lib/painel/constantes";
@@ -8,7 +9,10 @@ import {
   criarCliente,
   criarPost,
   editarPost,
+  excluirCliente,
+  excluirPost,
   gerarLink,
+  reagendarPost,
   type EntradaCliente,
   type EntradaEdicao,
   type EntradaPost,
@@ -33,7 +37,10 @@ export async function acaoCriarPost(entrada: EntradaPost) {
   const usuario = await exigirUsuario();
   const supabase = await criarClienteSupabase();
   const r = await criarPost(entrada, usuario.id, async (args) => supabase.rpc("create_post", args));
-  if (r.ok) revalidatePath(`/painel/clientes/${entrada.clienteId}`);
+  if (r.ok) {
+    revalidatePath(`/painel/clientes/${entrada.clienteId}`);
+    revalidatePath("/painel/calendario");
+  }
   return r;
 }
 
@@ -47,6 +54,7 @@ export async function acaoEditarPost(entrada: EntradaEdicao): Promise<Resultado>
     await supabase.storage.from(BUCKET).remove(r.removidos);
   }
   revalidatePath(`/painel/clientes/${entrada.clienteId}`);
+  revalidatePath("/painel/calendario");
   return { ok: true };
 }
 
@@ -87,4 +95,37 @@ export async function acaoMarcarNovidadesVistas(): Promise<string | null> {
   if (error) return null;
   revalidatePath("/painel", "layout");
   return perfil?.events_seen_at ?? null;
+}
+
+async function apagarDoStorage(caminhos: string[]) {
+  const supabase = await criarClienteSupabase();
+  const { error } = await supabase.storage.from(BUCKET).remove(caminhos);
+  if (error) throw new Error(error.message);
+}
+
+export async function acaoExcluirCliente(clienteId: string): Promise<Resultado> {
+  await exigirUsuario();
+  const supabase = await criarClienteSupabase();
+  const r = await excluirCliente(clienteId, async (args) => supabase.rpc("delete_client", args), apagarDoStorage);
+  if (!r.ok) return r;
+  revalidatePath("/painel", "layout");
+  redirect("/painel");
+}
+
+export async function acaoExcluirPost(postId: string, clienteId: string): Promise<Resultado> {
+  await exigirUsuario();
+  const supabase = await criarClienteSupabase();
+  const r = await excluirPost(postId, async (args) => supabase.rpc("delete_post", args), apagarDoStorage);
+  if (!r.ok) return r;
+  revalidatePath(`/painel/clientes/${clienteId}`);
+  revalidatePath("/painel/calendario");
+  return { ok: true };
+}
+
+export async function acaoReagendarPost(postId: string, agendadoPara: string | null): Promise<Resultado> {
+  await exigirUsuario();
+  const supabase = await criarClienteSupabase();
+  const r = await reagendarPost(postId, agendadoPara, async (args) => supabase.rpc("reschedule_post", args));
+  if (r.ok) revalidatePath("/painel", "layout");
+  return r;
 }

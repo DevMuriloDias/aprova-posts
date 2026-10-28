@@ -112,6 +112,14 @@ um contador do que chegou desde a última visita. Se `RESEND_API_KEY` estiver co
 social media também recebe um e-mail em todo pedido de ajuste e quando o cliente aprova o último
 post pendente (aprovações intermediárias não geram e-mail, para não lotar a caixa de entrada).
 
+**Calendário:** em **Calendário** o social media vê os posts de todos os clientes no mês (cada
+cliente com uma cor), abre a agenda de um dia, cria um post já com a data, muda a data/horário de
+um post (sem pedir nova aprovação) e vê os posts ainda sem data. Dá para filtrar por cliente.
+O app organiza e planeja; a publicação no Instagram continua sendo feita por você.
+
+**Excluir:** clientes e posts podem ser excluídos no painel. Para excluir um cliente é preciso
+digitar o nome dele; os posts, mídias, links e histórico vão junto.
+
 **Confirmação de e-mail:** se o link de confirmação falhar ou o e-mail não chegar, a tela de
 entrar oferece **Reenviar e-mail de confirmação** (a resposta é a mesma exista ou não a conta).
 

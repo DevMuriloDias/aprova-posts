@@ -20,7 +20,7 @@ export function Avatar({ nome, url, tamanho = "m" }: Props) {
   return (
     <span
       aria-hidden
-      className={`${classe} grid place-items-center bg-indigo-50 font-semibold text-indigo-700`}
+      className={`${classe} grid place-items-center bg-marca-50 font-semibold text-marca-700`}
     >
       {iniciais(nome)}
     </span>
