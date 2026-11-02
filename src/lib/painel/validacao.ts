@@ -63,11 +63,16 @@ export function esquemaNovoPost(donoId: string) {
         )
         .min(1, "Adicione pelo menos uma foto ou vídeo.")
         .max(MAXIMO_MIDIAS_POR_POST, `Um post pode ter no máximo ${MAXIMO_MIDIAS_POR_POST} mídias.`),
+      capaCaminho: z.string().min(1).optional(),
     })
     .refine(
       (d) => d.midias.every((m) => m.caminho.startsWith(pastaDoDono(donoId, d.clienteId, d.id))),
       { path: ["midias"], message: "Mídia inválida." },
-    );
+    )
+    .refine((d) => !d.capaCaminho || d.capaCaminho.startsWith(pastaDoDono(donoId, d.clienteId, d.id)), {
+      path: ["capaCaminho"],
+      message: "Capa inválida.",
+    });
 }
 
 /** Edição: mesmas regras do post novo, mas as mídias são opcionais (sem elas, ficam as atuais). */
@@ -89,13 +94,21 @@ export function esquemaEdicaoPost(donoId: string) {
         .min(1, "Adicione pelo menos uma foto ou vídeo.")
         .max(MAXIMO_MIDIAS_POR_POST, `Um post pode ter no máximo ${MAXIMO_MIDIAS_POR_POST} mídias.`)
         .optional(),
+      /** Nova capa (substitui a atual). */
+      capaCaminho: z.string().min(1).optional(),
+      /** Tirar a capa atual (ignorado se vier uma nova). */
+      removerCapa: z.boolean().optional(),
     })
     .refine(
       (d) =>
         !d.midias ||
         d.midias.every((m) => m.caminho.startsWith(pastaDoDono(donoId, d.clienteId, d.id))),
       { path: ["midias"], message: "Mídia inválida." },
-    );
+    )
+    .refine((d) => !d.capaCaminho || d.capaCaminho.startsWith(pastaDoDono(donoId, d.clienteId, d.id)), {
+      path: ["capaCaminho"],
+      message: "Capa inválida.",
+    });
 }
 
 /** Caminho no bucket: <dono>/<cliente>/<post>/<n>-<aleatório>.<ext> */
@@ -109,6 +122,18 @@ export function caminhoDaMidia(
 ): string {
   const ext = (nomeArquivo.split(".").pop() ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
   return `${donoId}/${clienteId}/${postId}/${indice}-${aleatorio}${ext ? `.${ext}` : ""}`;
+}
+
+/** Capa do post: <dono>/<cliente>/<post>/capa-<aleatório>.<ext> */
+export function caminhoDaCapa(
+  donoId: string,
+  clienteId: string,
+  postId: string,
+  nomeArquivo: string,
+  aleatorio: string,
+): string {
+  const ext = (nomeArquivo.split(".").pop() ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return `${donoId}/${clienteId}/${postId}/capa-${aleatorio}${ext ? `.${ext}` : ""}`;
 }
 
 export function caminhoDoAvatar(donoId: string, clienteId: string, nomeArquivo: string, aleatorio: string) {

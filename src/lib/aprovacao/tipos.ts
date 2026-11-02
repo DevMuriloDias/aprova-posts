@@ -24,6 +24,8 @@ export const esquemaPaginaBanco = z.discriminatedUnion("state", [
         scheduled_for: z.string().nullable(),
         version: z.number().int().min(1),
         resubmitted_at: z.string().nullable(),
+        // Opcional para aceitar o banco antes da migration da capa.
+        cover_path: z.string().nullable().optional(),
         slides: z.array(
           z.object({
             position: z.number(),
@@ -65,6 +67,8 @@ export type PostParaAprovar = {
   /** Começa em 1 e sobe a cada edição do social media. */
   versao: number;
   reenviadoEm: string | null;
+  /** Imagem da capa (aparece na grade do perfil); sem ela, usa a primeira mídia. */
+  capaUrl: string | null;
   midias: Midia[];
   ultimaDecisao: UltimaDecisao | null;
 };

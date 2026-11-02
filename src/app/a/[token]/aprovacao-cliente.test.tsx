@@ -42,6 +42,7 @@ function post(id: string, extra: Partial<PostParaAprovar> = {}): PostParaAprovar
     agendadoPara: null,
     versao: 1,
     reenviadoEm: null,
+    capaUrl: null,
     midias: [{ tipo: "image", url: `https://cdn/${id}.jpg` }],
     ultimaDecisao: null,
     ...extra,
@@ -156,8 +157,19 @@ describe("página de aprovação do cliente", () => {
     expect(screen.getByText("1 de 3 posts aprovados")).toBeInTheDocument();
   });
 
-  it("aba Grade do perfil mostra os posts em 3 colunas, o mais recente primeiro", async () => {
-    renderizar();
+  it("aba Grade do perfil: 3 colunas, pela data (último a publicar primeiro), sem data no final", async () => {
+    renderizar(vi.fn(), [
+      post("dia10", { agendadoPara: "2026-11-10T15:00:00Z" }),
+      post("semdata", { status: "approved" }),
+      post("dia9", {
+        agendadoPara: "2026-11-09T15:00:00Z",
+        midias: [
+          { tipo: "image", url: "https://cdn/a.jpg" },
+          { tipo: "image", url: "https://cdn/b.jpg" },
+        ],
+      }),
+      post("dia12", { agendadoPara: "2026-11-12T15:00:00Z", capaUrl: "https://cdn/capa12.jpg" }),
+    ]);
     await userEvent.click(screen.getByRole("tab", { name: "Grade do perfil" }));
     expect(screen.getByRole("tab", { name: "Grade do perfil" })).toHaveAttribute("aria-selected", "true");
 
@@ -165,14 +177,17 @@ describe("página de aprovação do cliente", () => {
     expect(legenda).toHaveTextContent("AprovadoAjuste pedidoAguardando aprovação");
     expect(grade).toHaveClass("grid-cols-3");
     const itens = within(grade).getAllByRole("button");
-    expect(itens.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Abrir post 1 (Aguardando aprovação)",
-      "Abrir post 2 (Aprovado)",
-      "Abrir post 3 (Aguardando aprovação)",
+    // Mesmo criado depois, o post do dia 9 fica depois do dia 10 (ordem do perfil).
+    expect(itens.map((b) => b.querySelector("img")?.getAttribute("src"))).toEqual([
+      "https://cdn/capa12.jpg", // dia 12, com capa própria
+      "https://cdn/dia10.jpg",
+      "https://cdn/a.jpg", // dia 9, carrossel: primeira mídia
+      "https://cdn/semdata.jpg", // sem data: no final
     ]);
     expect(itens[2]).toHaveTextContent("carrossel");
+    expect(itens[3]).toHaveAttribute("aria-label", "Abrir post 4 (Aprovado)");
 
-    await userEvent.click(itens[2]);
+    await userEvent.click(itens[0]);
     expect(screen.getByRole("tab", { name: "Posts" })).toHaveAttribute("aria-selected", "true");
   });
 });

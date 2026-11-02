@@ -91,6 +91,7 @@ describe("carregarPaginaAprovacao", () => {
           agendadoPara: null,
           versao: 2,
           reenviadoEm: "2026-10-28T09:00:00+00:00",
+          capaUrl: null,
           midias: [
             { tipo: "image", url: "https://cdn/dono/cli/p/0.jpg?assinado" },
             { tipo: "video", url: "https://cdn/dono/cli/p/1.mp4?assinado" },
@@ -117,5 +118,18 @@ describe("carregarPaginaAprovacao", () => {
 
   it("recusa resposta fora do formato esperado", async () => {
     await expect(carregarPaginaAprovacao(gerarToken(), deps({ state: "???" }))).rejects.toThrow();
+  });
+
+  it("assina a capa do post, quando houver", async () => {
+    const comCapa = {
+      ...paginaAtiva,
+      posts: [{ ...paginaAtiva.posts[0], cover_path: "dono/cli/p/capa-1.jpg" }],
+    };
+    const d = deps(comCapa);
+    const pagina = await carregarPaginaAprovacao(gerarToken(), d);
+    expect(d.assinarUrls.mock.calls[0][0]).toContain("dono/cli/p/capa-1.jpg");
+    expect(pagina.estado === "ativo" && pagina.posts[0].capaUrl).toBe(
+      "https://cdn/dono/cli/p/capa-1.jpg?assinado",
+    );
   });
 });

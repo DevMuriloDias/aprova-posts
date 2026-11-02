@@ -12,6 +12,7 @@ import {
 } from "@/lib/painel/validacao";
 import { acaoEditarPost } from "../../actions";
 import { dependenciasEnvio } from "../../dependencias-envio";
+import { CampoCapa } from "./campo-capa";
 
 type Props = {
   clienteId: string;
@@ -21,6 +22,7 @@ type Props = {
     agendadoPara: string | null;
     status: StatusPost;
     totalMidias: number;
+    temCapa: boolean;
   };
   limiteBytes: number;
 };
@@ -33,6 +35,8 @@ const AVISOS: Partial<Record<StatusPost, string>> = {
 export function EditorPost({ clienteId, post, limiteBytes }: Props) {
   const [aberto, setAberto] = useState(false);
   const [arquivos, setArquivos] = useState<File[]>([]);
+  const [capa, setCapa] = useState<File | null>(null);
+  const [removerCapa, setRemoverCapa] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [progresso, setProgresso] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
@@ -87,6 +91,24 @@ export function EditorPost({ clienteId, post, limiteBytes }: Props) {
         }
         midias = envio.midias;
       }
+      const enviados = [...(midias ?? [])];
+
+      let capaCaminho: string | undefined;
+      if (capa) {
+        setProgresso("Enviando a capa…");
+        const envioCapa = await enviarMidias(
+          { destino: "capa", clienteId, postId: post.id },
+          [capa],
+          dependenciasEnvio,
+        );
+        if (!envioCapa.ok) {
+          await descartarMidias(dependenciasEnvio, enviados);
+          setProgresso(null);
+          return setErro(envioCapa.erro);
+        }
+        capaCaminho = envioCapa.midias[0].caminho;
+        enviados.push(envioCapa.midias[0]);
+      }
 
       setProgresso("Salvando…");
       const r = await acaoEditarPost({
@@ -95,13 +117,17 @@ export function EditorPost({ clienteId, post, limiteBytes }: Props) {
         legenda: String(form.get("legenda") ?? ""),
         agendadoPara: agendado ? new Date(agendado).toISOString() : undefined,
         midias,
+        capaCaminho,
+        removerCapa,
       });
       setProgresso(null);
       if (!r.ok) {
-        if (midias) await descartarMidias(dependenciasEnvio, midias);
+        await descartarMidias(dependenciasEnvio, enviados);
         return setErro(r.erro);
       }
       setArquivos([]);
+      setCapa(null);
+      setRemoverCapa(false);
       setAberto(false);
     });
   }
@@ -110,6 +136,34 @@ export function EditorPost({ clienteId, post, limiteBytes }: Props) {
     <form action={salvar} className="order-last mt-2 flex w-full flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
       {AVISOS[post.status] && <p className="text-xs text-zinc-600">{AVISOS[post.status]}</p>}
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
+
+      <div className="flex flex-col gap-2">
+        <CampoCapa
+          capa={capa}
+          aoMudar={(nova) => {
+            setCapa(nova);
+            if (nova) setRemoverCapa(false);
+          }}
+          aoErro={setErro}
+          limiteBytes={limiteBytes}
+          ajuda={
+            post.temCapa
+              ? "Este post já tem capa. Escolha uma imagem para trocar."
+              : "Imagem que aparece na grade do perfil para o cliente. Sem capa, usamos a primeira foto ou vídeo."
+          }
+        />
+        {post.temCapa && !capa && (
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              checked={removerCapa}
+              onChange={(e) => setRemoverCapa(e.target.checked)}
+              className="size-4 accent-marca-600"
+            />
+            Tirar a capa atual (volta a usar a primeira foto ou vídeo)
+          </label>
+        )}
+      </div>
 
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
         Legenda
@@ -155,6 +209,8 @@ export function EditorPost({ clienteId, post, limiteBytes }: Props) {
           onClick={() => {
             setAberto(false);
             setArquivos([]);
+            setCapa(null);
+            setRemoverCapa(false);
             setErro(null);
           }}
           disabled={pendente}

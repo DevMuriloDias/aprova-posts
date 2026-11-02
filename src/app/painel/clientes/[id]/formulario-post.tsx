@@ -11,6 +11,7 @@ import {
 } from "@/lib/painel/validacao";
 import { acaoCriarPost } from "../../actions";
 import { dependenciasEnvio } from "../../dependencias-envio";
+import { CampoCapa } from "./campo-capa";
 
 type Props = {
   /** Cliente fixo (página do cliente). Sem ele, mostra a escolha de cliente. */
@@ -32,6 +33,7 @@ export function FormularioPost({
 }: Props) {
   const [aberto, setAberto] = useState(false);
   const [arquivos, setArquivos] = useState<File[]>([]);
+  const [capa, setCapa] = useState<File | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [progresso, setProgresso] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
@@ -81,6 +83,20 @@ export function FormularioPost({
         setProgresso(null);
         return setErro(envio.erro);
       }
+      const enviados = [...envio.midias];
+
+      let capaCaminho: string | undefined;
+      if (capa) {
+        setProgresso("Enviando a capa…");
+        const envioCapa = await enviarMidias({ destino: "capa", clienteId, postId }, [capa], dependenciasEnvio);
+        if (!envioCapa.ok) {
+          await descartarMidias(dependenciasEnvio, enviados);
+          setProgresso(null);
+          return setErro(envioCapa.erro);
+        }
+        capaCaminho = envioCapa.midias[0].caminho;
+        enviados.push(envioCapa.midias[0]);
+      }
 
       setProgresso("Salvando…");
       const r = await acaoCriarPost({
@@ -90,13 +106,15 @@ export function FormularioPost({
         // datetime-local não tem fuso: convertemos no navegador, que sabe o fuso local.
         agendadoPara: agendado ? new Date(agendado).toISOString() : undefined,
         midias: envio.midias,
+        capaCaminho,
       });
       setProgresso(null);
       if (!r.ok) {
-        await descartarMidias(dependenciasEnvio, envio.midias);
+        await descartarMidias(dependenciasEnvio, enviados);
         return setErro(r.erro);
       }
       setArquivos([]);
+      setCapa(null);
       setChave((k) => k + 1);
       setAberto(false);
     });
@@ -160,6 +178,8 @@ export function FormularioPost({
         </ol>
       )}
 
+      <CampoCapa capa={capa} aoMudar={setCapa} aoErro={setErro} limiteBytes={limiteBytes} />
+
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
         Legenda
         <textarea
@@ -183,7 +203,10 @@ export function FormularioPost({
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => setAberto(false)}
+          onClick={() => {
+            setAberto(false);
+            setCapa(null);
+          }}
           disabled={pendente}
           className="h-11 rounded-xl border border-zinc-300 font-semibold text-zinc-700"
         >

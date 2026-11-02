@@ -14,7 +14,9 @@ export type DependenciasEnvio = {
   descartar: (caminhos: string[]) => Promise<unknown>;
 };
 
-type Alvo = { destino: "post"; clienteId: string; postId: string } | { destino: "avatar"; clienteId: string };
+type Alvo =
+  | { destino: "post" | "capa"; clienteId: string; postId: string }
+  | { destino: "avatar"; clienteId: string };
 
 /**
  * Envia as mídias, na ordem, para a pasta do dono (R2 ou Supabase).

@@ -52,6 +52,7 @@ export type Database = {
           scheduled_for: string | null;
           version: number;
           resubmitted_at: string | null;
+          cover_path: string | null;
         } & Timestamps;
         Insert: {
           id?: string;
@@ -173,6 +174,7 @@ export type Database = {
           p_caption: string;
           p_scheduled_for: string | null;
           p_slides: Json;
+          p_cover_path?: string | null;
         };
         Returns: Database["public"]["Tables"]["posts"]["Row"];
       };
@@ -190,6 +192,8 @@ export type Database = {
           p_caption: string;
           p_scheduled_for: string | null;
           p_slides?: Json | null;
+          p_cover_path?: string | null;
+          p_remover_capa?: boolean;
         };
         Returns: string[];
       };

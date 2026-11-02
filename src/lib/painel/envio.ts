@@ -2,6 +2,7 @@ import type { Armazenamento, DestinoEnvio } from "@/lib/armazenamento/tipos";
 import type { Resultado } from "./servico";
 import {
   MAXIMO_MIDIAS_POR_POST,
+  caminhoDaCapa,
   caminhoDaMidia,
   caminhoDoAvatar,
   problemaNoArquivo,
@@ -13,6 +14,7 @@ export type ArquivoParaEnviar = { nome: string; tipo: string; tamanho: number };
 
 export type PedidoEnvio =
   | { destino: "post"; clienteId: string; postId: string; arquivos: ArquivoParaEnviar[] }
+  | { destino: "capa"; clienteId: string; postId: string; arquivos: ArquivoParaEnviar[] }
   | { destino: "avatar"; clienteId: string; arquivos: ArquivoParaEnviar[] };
 
 /**
@@ -27,11 +29,12 @@ export async function prepararEnvios(
   arm: Pick<Armazenamento, "prepararEnvio" | "limiteBytes">,
   aleatorio: () => string = () => crypto.randomUUID().slice(0, 8),
 ): Promise<Resultado<{ destinos: DestinoEnvio[] }>> {
-  if (!UUID.test(pedido.clienteId) || (pedido.destino === "post" && !UUID.test(pedido.postId))) {
+  if (!UUID.test(pedido.clienteId) || (pedido.destino !== "avatar" && !UUID.test(pedido.postId))) {
     return { ok: false, erro: "Envio inválido." };
   }
   const { arquivos } = pedido;
-  const maximo = pedido.destino === "avatar" ? 1 : MAXIMO_MIDIAS_POR_POST;
+  const soUmaImagem = pedido.destino !== "post";
+  const maximo = soUmaImagem ? 1 : MAXIMO_MIDIAS_POR_POST;
   if (arquivos.length === 0) return { ok: false, erro: "Adicione pelo menos uma foto ou vídeo." };
   if (arquivos.length > maximo) {
     return {
@@ -39,14 +42,16 @@ export async function prepararEnvios(
       erro:
         pedido.destino === "avatar"
           ? "Escolha só uma foto de perfil."
-          : `Um post pode ter no máximo ${MAXIMO_MIDIAS_POR_POST} mídias.`,
+          : pedido.destino === "capa"
+            ? "Escolha só uma imagem para a capa."
+            : `Um post pode ter no máximo ${MAXIMO_MIDIAS_POR_POST} mídias.`,
     };
   }
 
   for (const a of arquivos) {
     const problema = problemaNoArquivo(
       { name: a.nome, type: a.tipo, size: a.tamanho },
-      { apenasImagem: pedido.destino === "avatar", limiteBytes: arm.limiteBytes },
+      { apenasImagem: soUmaImagem, limiteBytes: arm.limiteBytes },
     );
     if (problema) return { ok: false, erro: problema };
   }
@@ -56,7 +61,9 @@ export async function prepararEnvios(
       arm.prepararEnvio(
         pedido.destino === "avatar"
           ? caminhoDoAvatar(donoId, pedido.clienteId, a.nome, aleatorio())
-          : caminhoDaMidia(donoId, pedido.clienteId, pedido.postId, i, a.nome, aleatorio()),
+          : pedido.destino === "capa"
+            ? caminhoDaCapa(donoId, pedido.clienteId, pedido.postId, a.nome, aleatorio())
+            : caminhoDaMidia(donoId, pedido.clienteId, pedido.postId, i, a.nome, aleatorio()),
         a.tipo,
         a.tamanho,
       ),

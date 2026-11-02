@@ -42,6 +42,8 @@ export type EntradaPost = {
   legenda: string;
   agendadoPara?: string;
   midias: { caminho: string; tipo: "image" | "video" }[];
+  /** Capa opcional, mostrada na grade do perfil. */
+  capaCaminho?: string;
 };
 
 export async function criarPost(
@@ -53,6 +55,7 @@ export async function criarPost(
     p_caption: string;
     p_scheduled_for: string | null;
     p_slides: { storage_path: string; media_type: "image" | "video" }[];
+    p_cover_path: string | null;
   }) => Promise<RespostaBanco>,
 ): Promise<Resultado> {
   const dados = esquemaNovoPost(donoId).safeParse(entrada);
@@ -64,12 +67,16 @@ export async function criarPost(
     p_caption: dados.data.legenda,
     p_scheduled_for: dados.data.agendadoPara ? new Date(dados.data.agendadoPara).toISOString() : null,
     p_slides: dados.data.midias.map((m) => ({ storage_path: m.caminho, media_type: m.tipo })),
+    p_cover_path: dados.data.capaCaminho ?? null,
   });
   if (error) return { ok: false, erro: ERRO_GENERICO };
   return { ok: true };
 }
 
-export type EntradaEdicao = Omit<EntradaPost, "midias"> & { midias?: EntradaPost["midias"] };
+export type EntradaEdicao = Omit<EntradaPost, "midias"> & {
+  midias?: EntradaPost["midias"];
+  removerCapa?: boolean;
+};
 
 /**
  * Edita o post e o devolve para aprovação do cliente (nova versão).
@@ -83,6 +90,8 @@ export async function editarPost(
     p_caption: string;
     p_scheduled_for: string | null;
     p_slides: { storage_path: string; media_type: "image" | "video" }[] | null;
+    p_cover_path: string | null;
+    p_remover_capa: boolean;
   }) => Promise<RespostaBanco & { data: string[] | null }>,
 ): Promise<Resultado<{ removidos: string[] }>> {
   const dados = esquemaEdicaoPost(donoId).safeParse(entrada);
@@ -95,6 +104,8 @@ export async function editarPost(
     p_slides: dados.data.midias
       ? dados.data.midias.map((m) => ({ storage_path: m.caminho, media_type: m.tipo }))
       : null,
+    p_cover_path: dados.data.capaCaminho ?? null,
+    p_remover_capa: dados.data.removerCapa ?? false,
   });
   if (error) {
     return {

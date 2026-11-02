@@ -59,6 +59,10 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
 - Identidade visual própria: não usar logo, ícones, gradiente ou cores do Instagram. Use as cores
   do tema em `src/app/globals.css` (`marca-*` azul-petróleo, `destaque` verde-limão, `fundo` creme,
   `tinta`), não cores soltas; status: verde aprovado, âmbar ajuste, azul aguardando.
+- Capa do post: `posts.cover_path` (imagem opcional, enviada com `destino: "capa"`). Entra por
+  `create_post(p_cover_path)` e `update_post(p_cover_path, p_remover_capa)`; trocar a capa gera nova
+  versão. A grade do cliente (`ordemDaGrade`) ordena pela data de postagem, mais recente primeiro,
+  e deixa os posts sem data no final.
 - Calendário: datas agrupadas no horário de Brasília (`src/lib/calendario`). Reagendar
   (`reschedule_post`) muda só a data e não pede nova aprovação; editar conteúdo (`update_post`) pede.
 - Exclusão: `delete_client` / `delete_post` apagam em cascata e devolvem os arquivos para o app
