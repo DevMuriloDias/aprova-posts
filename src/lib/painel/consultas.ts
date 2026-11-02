@@ -15,6 +15,14 @@ async function assinar(caminhos: string[]) {
   return armazenamento().assinarLeitura(caminhos);
 }
 
+type Slide = { position: number; media_type: "image" | "video"; storage_path: string };
+
+/** Miniatura do post: a capa, se houver; senão, a primeira mídia do carrossel. */
+function miniatura(capa: string | null, slides: Slide[]): Slide | undefined {
+  if (capa) return { position: -1, media_type: "image", storage_path: capa };
+  return [...slides].sort((a, b) => a.position - b.position)[0];
+}
+
 export type ClienteNaLista = {
   id: string;
   nome: string;
@@ -57,8 +65,11 @@ export type PostNoPainel = {
   agendadoPara: string | null;
   versao: number;
   reenviadoEm: string | null;
+  /** Miniatura: a capa, se houver; senão, a primeira mídia. */
   capaUrl: string | null;
   capaTipo: "image" | "video" | null;
+  /** O post tem uma capa própria (separada das mídias). */
+  temCapa: boolean;
   totalMidias: number;
   historico: EventoNoPainel[];
 };
@@ -86,7 +97,7 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
     .from("clients")
     .select(
       `id, name, instagram_handle, avatar_path,
-       posts(id, caption, status, scheduled_for, created_at, version, resubmitted_at,
+       posts(id, caption, status, scheduled_for, created_at, version, resubmitted_at, cover_path,
          post_slides(position, media_type, storage_path),
          approval_events(action, comment, audio_path, post_version, created_at))`,
     )
@@ -105,7 +116,7 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
     .limit(1);
 
   const posts = [...cliente.posts].sort(ordemDePublicacao);
-  const capas = posts.map((p) => [...p.post_slides].sort((a, b) => a.position - b.position)[0]);
+  const capas = posts.map((p) => miniatura(p.cover_path, p.post_slides));
   const urls = await assinar([
     ...(cliente.avatar_path ? [cliente.avatar_path] : []),
     ...capas.flatMap((c) => (c ? [c.storage_path] : [])),
@@ -136,6 +147,7 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
       reenviadoEm: p.resubmitted_at,
       capaUrl: capas[i] ? (urls.get(capas[i].storage_path) ?? null) : null,
       capaTipo: capas[i]?.media_type ?? null,
+      temCapa: Boolean(p.cover_path),
       totalMidias: p.post_slides.length,
       historico: [...p.approval_events]
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -209,12 +221,13 @@ type LinhaCalendario = {
   status: StatusPost;
   scheduled_for: string | null;
   client_id: string;
+  cover_path: string | null;
   clients: { name: string } | null;
   post_slides: { position: number; media_type: "image" | "video"; storage_path: string }[];
 };
 
 const COLUNAS_CALENDARIO =
-  "id, caption, status, scheduled_for, client_id, clients(name), post_slides(position, media_type, storage_path)";
+  "id, caption, status, scheduled_for, client_id, cover_path, clients(name), post_slides(position, media_type, storage_path)";
 
 /** Posts com data dentro de [inicio, fim), os sem data e a lista de clientes. */
 export async function listarCalendario(filtro: {
@@ -253,9 +266,7 @@ export async function listarCalendario(filtro: {
     ...((rAgendados.data ?? []) as unknown as LinhaCalendario[]),
     ...((rSemData.data ?? []) as unknown as LinhaCalendario[]),
   ];
-  const capas = new Map(
-    linhas.map((l) => [l.id, [...l.post_slides].sort((a, b) => a.position - b.position)[0]]),
-  );
+  const capas = new Map(linhas.map((l) => [l.id, miniatura(l.cover_path, l.post_slides)]));
   const urls = await assinar([...capas.values()].flatMap((c) => (c ? [c.storage_path] : [])));
 
   const mapear = (l: LinhaCalendario): PostNoCalendario => {

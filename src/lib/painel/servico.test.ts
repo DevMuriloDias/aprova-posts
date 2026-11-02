@@ -77,6 +77,7 @@ describe("criarPost", () => {
         { storage_path: midia.caminho, media_type: "image" },
         { storage_path: midia.caminho.replace("0-", "1-"), media_type: "video" },
       ],
+      p_cover_path: null,
     });
   });
 
@@ -94,6 +95,36 @@ describe("criarPost", () => {
       rpc,
     );
     expect(r).toEqual({ ok: false, erro });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("capa do post", () => {
+  const midia = { caminho: `${DONO}/${CLIENTE}/${POST}/0-abc.jpg`, tipo: "image" as const };
+  const capa = `${DONO}/${CLIENTE}/${POST}/capa-x1.jpg`;
+
+  it("criarPost envia a capa", async () => {
+    const rpc = ok();
+    await criarPost({ id: POST, clienteId: CLIENTE, legenda: "", midias: [midia], capaCaminho: capa }, DONO, rpc);
+    expect(rpc.mock.calls[0][0].p_cover_path).toBe(capa);
+  });
+
+  it("editarPost troca ou remove a capa", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
+    await editarPost({ id: POST, clienteId: CLIENTE, legenda: "", capaCaminho: capa }, DONO, rpc);
+    expect(rpc.mock.calls[0][0]).toMatchObject({ p_cover_path: capa, p_remover_capa: false });
+    await editarPost({ id: POST, clienteId: CLIENTE, legenda: "", removerCapa: true }, DONO, rpc);
+    expect(rpc.mock.calls[1][0]).toMatchObject({ p_cover_path: null, p_remover_capa: true });
+  });
+
+  it("recusa capa fora da pasta do post", async () => {
+    const rpc = ok();
+    const r = await criarPost(
+      { id: POST, clienteId: CLIENTE, legenda: "", midias: [midia], capaCaminho: `${OUTRO}/capa.jpg` },
+      DONO,
+      rpc,
+    );
+    expect(r).toEqual({ ok: false, erro: "Capa inválida." });
     expect(rpc).not.toHaveBeenCalled();
   });
 });
@@ -145,6 +176,8 @@ describe("editarPost", () => {
       p_caption: "Corrigida",
       p_scheduled_for: "2026-11-05T15:00:00.000Z",
       p_slides: null,
+      p_cover_path: null,
+      p_remover_capa: false,
     });
   });
 

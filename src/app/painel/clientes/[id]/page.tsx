@@ -158,6 +158,7 @@ function ItemPost({ post, limiteBytes, clienteId }: PropsItem) {
             agendadoPara: post.agendadoPara,
             status: post.status,
             totalMidias: post.totalMidias,
+            temCapa: post.temCapa,
           }}
         />
         <ExcluirPost postId={post.id} clienteId={clienteId} />

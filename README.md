@@ -77,7 +77,7 @@ tests/db/                            testes de RLS e das funções do banco
 | ----------------- | ------------------------------------------------------------------------ |
 | `profiles`        | Um por social media (criado automaticamente no cadastro)                 |
 | `clients`         | Clientes do social media                                                 |
-| `posts`           | Posts de um cliente (legenda, status, data prevista)                     |
+| `posts`           | Posts de um cliente (legenda, status, data prevista, capa opcional)      |
 | `post_slides`     | Mídias do post (1 ou até 20 num carrossel), no bucket privado `post-media` |
 | `approval_links`  | Links mágicos: só o hash SHA-256 do token, com expiração e revogação     |
 | `approval_events` | Histórico imutável de aprovações e pedidos de ajuste, com data e hora    |
@@ -111,6 +111,12 @@ vê o aviso "Post ajustado" com o que tinha pedido. Cada resposta guarda a vers�
 um contador do que chegou desde a última visita. Se `RESEND_API_KEY` estiver configurada, o
 social media também recebe um e-mail em todo pedido de ajuste e quando o cliente aprova o último
 post pendente (aprovações intermediárias não geram e-mail, para não lotar a caixa de entrada).
+
+**Capa:** ao criar ou editar um post há um campo separado, **Capa (opcional)**, para uma imagem
+que aparece na **Grade do perfil** do cliente (e nas miniaturas do painel e do calendário). Sem
+capa, a grade usa a primeira foto ou vídeo. Trocar ou tirar a capa conta como edição: o post
+ganha nova versão e volta para aprovação. A grade segue a data de postagem (o último a ser
+publicado aparece primeiro, como no perfil); posts sem data ficam no final.
 
 **Calendário:** em **Calendário** o social media vê os posts de todos os clientes no mês (cada
 cliente com uma cor), abre a agenda de um dia, cria um post já com a data, muda a data/horário de

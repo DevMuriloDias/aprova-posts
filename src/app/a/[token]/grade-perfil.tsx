@@ -8,9 +8,16 @@ type Props = {
   aoEscolher: (postId: string) => void;
 };
 
-/** Ordem do perfil: o último a ser publicado aparece primeiro. */
+/**
+ * Ordem do perfil, como no Instagram: pela data de postagem, o último a ser
+ * publicado primeiro. Posts ainda sem data vão para o final.
+ */
 export function ordemDaGrade(posts: PostParaAprovar[]): PostParaAprovar[] {
-  return [...posts].reverse();
+  const comData = posts
+    .filter((p) => p.agendadoPara)
+    .sort((a, b) => b.agendadoPara!.localeCompare(a.agendadoPara!));
+  const semData = posts.filter((p) => !p.agendadoPara);
+  return [...comData, ...semData];
 }
 
 export function GradePerfil({ posts, aoEscolher }: Props) {
@@ -18,11 +25,13 @@ export function GradePerfil({ posts, aoEscolher }: Props) {
   return (
     <div>
       <p className="px-4 pb-3 text-sm text-zinc-600 sm:px-0">
-        Prévia de como o perfil vai ficar com os próximos posts (o mais recente primeiro).
+        Prévia de como o perfil vai ficar: pela data de postagem, o último a ser publicado
+        aparece primeiro. Posts sem data ficam no final.
       </p>
       <ul className="grid grid-cols-3 gap-0.5">
         {ordenados.map((post, i) => {
-          const capa = post.midias[0];
+          // A capa escolhida pelo social media; sem ela, a primeira mídia do post.
+          const capa = post.capaUrl ? { tipo: "image" as const, url: post.capaUrl } : post.midias[0];
           return (
             <li key={post.id}>
               <button
@@ -42,7 +51,7 @@ export function GradePerfil({ posts, aoEscolher }: Props) {
                     carrossel
                   </span>
                 )}
-                {capa?.tipo === "video" && post.midias.length === 1 && (
+                {post.midias[0]?.tipo === "video" && post.midias.length === 1 && (
                   <span className="absolute right-1.5 top-1.5 rounded bg-zinc-900/70 px-1.5 text-[10px] font-semibold text-white">
                     vídeo
                   </span>
