@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LIMITE_SUPABASE, textoDoLimite } from "@/lib/armazenamento/limites";
 
 export const TIPOS_MIDIA_ACEITOS = {
   "image/jpeg": "image",
@@ -8,7 +9,6 @@ export const TIPOS_MIDIA_ACEITOS = {
   "video/quicktime": "video",
 } as const;
 
-export const TAMANHO_MAXIMO_MIDIA = 100 * 1024 * 1024; // igual ao limite do bucket
 export const MAXIMO_MIDIAS_POR_POST = 20;
 
 const pastaDoDono = (dono: string, ...partes: string[]) => `${[dono, ...partes].join("/")}/`;
@@ -116,10 +116,13 @@ export function caminhoDoAvatar(donoId: string, clienteId: string, nomeArquivo: 
   return `${donoId}/${clienteId}/avatar-${aleatorio}${ext ? `.${ext}` : ""}`;
 }
 
-/** Valida um arquivo antes do upload. Retorna a mensagem de erro, se houver. */
+/**
+ * Valida um arquivo antes do upload. Retorna a mensagem de erro, se houver.
+ * O limite depende de onde as mídias ficam (Supabase: 50 MB; R2: 500 MB).
+ */
 export function problemaNoArquivo(
   arquivo: { type: string; size: number; name: string },
-  { apenasImagem = false } = {},
+  { apenasImagem = false, limiteBytes = LIMITE_SUPABASE } = {},
 ): string | null {
   if (apenasImagem && !arquivo.type.startsWith("image/")) {
     return `"${arquivo.name}" não é uma imagem. Use JPG, PNG ou WEBP.`;
@@ -127,8 +130,14 @@ export function problemaNoArquivo(
   if (!(arquivo.type in TIPOS_MIDIA_ACEITOS)) {
     return `"${arquivo.name}" não é um formato aceito. Use JPG, PNG, WEBP, MP4 ou MOV.`;
   }
-  if (arquivo.size > TAMANHO_MAXIMO_MIDIA) {
-    return `"${arquivo.name}" passa de 100 MB.`;
+  if (arquivo.size === 0) {
+    return `"${arquivo.name}" está vazio.`;
+  }
+  if (arquivo.size > limiteBytes) {
+    const dica = arquivo.type.startsWith("video/")
+      ? " Exporte o vídeo em 1080p (no CapCut, por exemplo) para diminuir o tamanho."
+      : "";
+    return `"${arquivo.name}" passa de ${textoDoLimite(limiteBytes)}.${dica}`;
   }
   return null;
 }

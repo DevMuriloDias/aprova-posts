@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { limiteDeEnvio } from "@/lib/armazenamento";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { chaveDoDia, chaveDoMes, diaDaUrl, intervaloDaGrade, mesDaUrl } from "@/lib/calendario/calendario";
 import { listarCalendario } from "@/lib/painel/consultas";
@@ -24,7 +25,7 @@ function texto(v: string | string[] | undefined): string | null {
 }
 
 async function Calendario({ searchParams }: { searchParams: Busca }) {
-  const usuario = await exigirUsuario();
+  await exigirUsuario();
   const busca = await searchParams;
   const mes = mesDaUrl(texto(busca.mes));
   const filtroCliente = texto(busca.cliente);
@@ -45,7 +46,7 @@ async function Calendario({ searchParams }: { searchParams: Busca }) {
       hoje={hoje}
       diaSelecionado={diaSelecionado}
       clienteId={clienteId}
-      donoId={usuario.id}
+      limiteBytes={limiteDeEnvio()}
     />
   );
 }

@@ -35,7 +35,8 @@ export type PropsVistaCalendario = {
   hoje: string;
   diaSelecionado: string;
   clienteId: string | null;
-  donoId: string;
+  /** Tamanho máximo por arquivo no "Novo post neste dia". */
+  limiteBytes: number;
   clientes: { id: string; nome: string }[];
   agendados: PostNoCalendario[];
   semData: PostNoCalendario[];
@@ -46,7 +47,7 @@ export function VistaCalendario({
   hoje,
   diaSelecionado,
   clienteId,
-  donoId,
+  limiteBytes,
   clientes,
   agendados,
   semData,
@@ -212,7 +213,7 @@ export function VistaCalendario({
             ) : (
               <FormularioPost
                 key={diaSelecionado}
-                donoId={donoId}
+                limiteBytes={limiteBytes}
                 clientes={clienteId ? clientes.filter((c) => c.id === clienteId) : clientes}
                 agendadoInicial={campoDataHoraDoDia(diaSelecionado)}
                 rotulo="+ Novo post neste dia"

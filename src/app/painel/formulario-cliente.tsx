@@ -3,12 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
-import { BUCKET } from "@/lib/painel/constantes";
-import { caminhoDoAvatar, problemaNoArquivo } from "@/lib/painel/validacao";
-import { criarClienteNavegador } from "@/lib/supabase/client";
+import { descartarMidias, enviarMidias } from "@/lib/painel/upload";
+import { problemaNoArquivo } from "@/lib/painel/validacao";
 import { acaoCriarCliente } from "./actions";
+import { dependenciasEnvio } from "./dependencias-envio";
 
-export function FormularioCliente({ donoId }: { donoId: string }) {
+export function FormularioCliente({ limiteBytes }: { limiteBytes: number }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -31,21 +31,18 @@ export function FormularioCliente({ donoId }: { donoId: string }) {
     const foto = form.get("foto");
     const arquivo = foto instanceof File && foto.size > 0 ? foto : null;
     if (arquivo) {
-      const problema = problemaNoArquivo(arquivo, { apenasImagem: true });
+      const problema = problemaNoArquivo(arquivo, { apenasImagem: true, limiteBytes });
       if (problema) return setErro(problema);
     }
 
     iniciar(async () => {
       const id = crypto.randomUUID();
       let avatarPath: string | undefined;
-      const supabase = criarClienteNavegador();
 
       if (arquivo) {
-        avatarPath = caminhoDoAvatar(donoId, id, arquivo.name, crypto.randomUUID().slice(0, 8));
-        const { error } = await supabase.storage
-          .from(BUCKET)
-          .upload(avatarPath, arquivo, { contentType: arquivo.type });
-        if (error) return setErro("Não foi possível enviar a foto. Tente novamente.");
+        const envio = await enviarMidias({ destino: "avatar", clienteId: id }, [arquivo], dependenciasEnvio);
+        if (!envio.ok) return setErro(envio.erro);
+        avatarPath = envio.midias[0].caminho;
       }
 
       const r = await acaoCriarCliente({
@@ -55,7 +52,7 @@ export function FormularioCliente({ donoId }: { donoId: string }) {
         avatarPath,
       });
       if (!r.ok) {
-        if (avatarPath) await supabase.storage.from(BUCKET).remove([avatarPath]);
+        if (avatarPath) await descartarMidias(dependenciasEnvio, [{ caminho: avatarPath }]);
         return setErro(r.erro);
       }
       router.push(`/painel/clientes/${r.id}`);

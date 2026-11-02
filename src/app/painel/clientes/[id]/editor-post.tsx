@@ -3,17 +3,17 @@
 import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
 import type { StatusPost } from "@/lib/aprovacao/tipos";
-import { enviarMidias, paraCampoDataHora, removerMidias } from "@/lib/painel/upload";
+import { textoDoLimite } from "@/lib/armazenamento/limites";
+import { descartarMidias, enviarMidias, paraCampoDataHora, textoDoProgresso } from "@/lib/painel/upload";
 import {
   MAXIMO_MIDIAS_POR_POST,
   TIPOS_MIDIA_ACEITOS,
   problemaNoArquivo,
 } from "@/lib/painel/validacao";
-import { criarClienteNavegador } from "@/lib/supabase/client";
 import { acaoEditarPost } from "../../actions";
+import { dependenciasEnvio } from "../../dependencias-envio";
 
 type Props = {
-  donoId: string;
   clienteId: string;
   post: {
     id: string;
@@ -22,6 +22,7 @@ type Props = {
     status: StatusPost;
     totalMidias: number;
   };
+  limiteBytes: number;
 };
 
 const AVISOS: Partial<Record<StatusPost, string>> = {
@@ -29,7 +30,7 @@ const AVISOS: Partial<Record<StatusPost, string>> = {
   approved: "Este post já foi aprovado. Se salvar, o cliente vai precisar aprovar de novo.",
 };
 
-export function EditorPost({ donoId, clienteId, post }: Props) {
+export function EditorPost({ clienteId, post, limiteBytes }: Props) {
   const [aberto, setAberto] = useState(false);
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
     setErro(null);
     const novos = Array.from(lista ?? []);
     for (const arquivo of novos) {
-      const problema = problemaNoArquivo(arquivo);
+      const problema = problemaNoArquivo(arquivo, { limiteBytes });
       if (problema) return setErro(problema);
     }
     if (novos.length > MAXIMO_MIDIAS_POR_POST) {
@@ -71,15 +72,14 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
     const agendado = String(form.get("agendadoPara") ?? "");
 
     iniciar(async () => {
-      const supabase = criarClienteNavegador();
       let midias: { caminho: string; tipo: "image" | "video" }[] | undefined;
 
       if (arquivos.length > 0) {
         const envio = await enviarMidias(
-          supabase,
-          { donoId, clienteId, postId: post.id },
+          { destino: "post", clienteId, postId: post.id },
           arquivos,
-          (n, total) => setProgresso(`Enviando ${n} de ${total}…`),
+          dependenciasEnvio,
+          (n, total, fracao) => setProgresso(textoDoProgresso(n, total, fracao)),
         );
         if (!envio.ok) {
           setProgresso(null);
@@ -98,7 +98,7 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
       });
       setProgresso(null);
       if (!r.ok) {
-        if (midias) await removerMidias(supabase, midias);
+        if (midias) await descartarMidias(dependenciasEnvio, midias);
         return setErro(r.erro);
       }
       setArquivos([]);
@@ -137,7 +137,8 @@ export function EditorPost({ donoId, clienteId, post }: Props) {
         <span className="text-xs font-normal text-zinc-500">
           {arquivos.length > 0
             ? `${arquivos.length} ${arquivos.length === 1 ? "arquivo novo substitui" : "arquivos novos substituem"} as ${post.totalMidias} mídias atuais.`
-            : `Sem escolher nada, ficam as ${post.totalMidias} mídias atuais.`}
+            : `Sem escolher nada, ficam as ${post.totalMidias} mídias atuais.`}{" "}
+          Até {textoDoLimite(limiteBytes)} por arquivo.
         </span>
         <input
           type="file"

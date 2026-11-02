@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { Avatar } from "@/components/avatar";
 import { StatusPostSelo } from "@/components/status-post";
 import { textoProgresso } from "@/lib/aprovacao/progresso";
+import { limiteDeEnvio } from "@/lib/armazenamento";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { formatarDataCurta, formatarDataHora } from "@/lib/formatacao";
 import { detalharCliente, type EventoNoPainel, type PostNoPainel } from "@/lib/painel/consultas";
@@ -30,9 +31,10 @@ export default function PaginaCliente({ params }: PageProps<"/painel/clientes/[i
 async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">["params"] }) {
   const { id } = await params;
   if (!UUID.test(id)) notFound();
-  const usuario = await exigirUsuario();
+  await exigirUsuario();
   const cliente = await detalharCliente(id);
   if (!cliente) notFound();
+  const limite = limiteDeEnvio();
 
   return (
     <div className="flex flex-col gap-6">
@@ -59,7 +61,7 @@ async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-base font-bold text-zinc-900">Posts</h2>
-          <FormularioPost donoId={usuario.id} clienteId={cliente.id} />
+          <FormularioPost clienteId={cliente.id} limiteBytes={limite} />
         </div>
         {cliente.posts.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-600">
@@ -68,7 +70,7 @@ async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">
         ) : (
           <ul className="flex flex-col gap-3">
             {cliente.posts.map((post) => (
-              <ItemPost key={post.id} post={post} donoId={usuario.id} clienteId={cliente.id} />
+              <ItemPost key={post.id} post={post} limiteBytes={limite} clienteId={cliente.id} />
             ))}
           </ul>
         )}
@@ -85,9 +87,9 @@ async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">
   );
 }
 
-type PropsItem = { post: PostNoPainel; donoId: string; clienteId: string };
+type PropsItem = { post: PostNoPainel; limiteBytes: number; clienteId: string };
 
-function ItemPost({ post, donoId, clienteId }: PropsItem) {
+function ItemPost({ post, limiteBytes, clienteId }: PropsItem) {
   const ultimo = post.historico[0];
   // A última resposta foi sobre uma versão anterior: o post já foi ajustado e reenviado.
   const reenviado = ultimo && ultimo.versao < post.versao;
@@ -148,8 +150,8 @@ function ItemPost({ post, donoId, clienteId }: PropsItem) {
 
       <div className="flex flex-wrap items-start justify-between gap-2">
         <EditorPost
-          donoId={donoId}
           clienteId={clienteId}
+          limiteBytes={limiteBytes}
           post={{
             id: post.id,
             legenda: post.legenda,

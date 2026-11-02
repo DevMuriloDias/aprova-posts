@@ -1,17 +1,12 @@
 import "server-only";
 import { after } from "next/server";
+import { armazenamento } from "@/lib/armazenamento";
 import { envPublico } from "@/lib/env";
 import { configEmail } from "@/lib/env-servidor";
 import { enviarPeloResend, notificarDecisao } from "@/lib/notificacoes/email";
-import { BUCKET as BUCKET_MIDIAS } from "@/lib/painel/constantes";
 import type { ClienteAdmin } from "@/lib/supabase/admin";
 import type { DependenciasPagina } from "./pagina";
 import type { DependenciasDecisao } from "./servico";
-
-export { BUCKET_MIDIAS };
-
-/** As URLs das mídias valem 1 hora; recarregar a página gera novas. */
-const VALIDADE_URL_SEGUNDOS = 60 * 60;
 
 export function dependenciasPagina(admin: ClienteAdmin): DependenciasPagina {
   return {
@@ -20,17 +15,8 @@ export function dependenciasPagina(admin: ClienteAdmin): DependenciasPagina {
       if (error) throw new Error(`Falha ao carregar a página de aprovação: ${error.message}`);
       return data;
     },
-    async assinarUrls(caminhos) {
-      const { data, error } = await admin.storage
-        .from(BUCKET_MIDIAS)
-        .createSignedUrls(caminhos, VALIDADE_URL_SEGUNDOS);
-      if (error) throw new Error(`Falha ao assinar as mídias: ${error.message}`);
-      const urls = new Map<string, string>();
-      for (const item of data) {
-        if (item.path && item.signedUrl) urls.set(item.path, item.signedUrl);
-      }
-      return urls;
-    },
+    // As URLs das mídias valem 1 hora; recarregar a página gera novas.
+    assinarUrls: (caminhos) => armazenamento().assinarLeitura(caminhos),
   };
 }
 
@@ -39,7 +25,7 @@ export function dependenciasPagina(admin: ClienteAdmin): DependenciasPagina {
  * áudio na pasta devolvida por get_audio_upload_folder, que valida o link.
  */
 export function dependenciasDecisao(admin: ClienteAdmin): DependenciasDecisao<Blob> {
-  const bucket = () => admin.storage.from(BUCKET_MIDIAS);
+  const arquivos = armazenamento();
   return {
     async pastaDoAudio(tokenHash, postId) {
       const { data, error } = await admin.rpc("get_audio_upload_folder", {
@@ -50,15 +36,20 @@ export function dependenciasDecisao(admin: ClienteAdmin): DependenciasDecisao<Bl
       return { ok: true, pasta: data };
     },
     async enviarAudio(caminho, audio, tipo) {
-      // Envia os bytes (e não o Blob): assim o storage recebe o tipo já limpo
-      // ("audio/webm"), e não "audio/webm;codecs=opus", que o bucket não lista.
-      const bytes = await audio.arrayBuffer();
-      const { error } = await bucket().upload(caminho, bytes, { contentType: tipo, upsert: false });
-      if (error) console.error("[aprovacao] Falha ao enviar áudio:", error.message);
-      return !error;
+      // Envia os bytes com o tipo já limpo ("audio/webm"), e não
+      // "audio/webm;codecs=opus", que o storage pode recusar.
+      try {
+        await arquivos.enviar(caminho, await audio.arrayBuffer(), tipo);
+        return true;
+      } catch (erro) {
+        console.error("[aprovacao] Falha ao enviar áudio:", erro);
+        return false;
+      }
     },
     async removerAudio(caminho) {
-      await bucket().remove([caminho]);
+      await arquivos.apagar([caminho]).catch((erro) =>
+        console.error("[aprovacao] Falha ao apagar áudio:", erro),
+      );
     },
     async registrar({ tokenHash, postId, acao, comentario, audioPath }) {
       const { data, error } = await admin.rpc("register_approval", {
@@ -74,8 +65,7 @@ export function dependenciasDecisao(admin: ClienteAdmin): DependenciasDecisao<Bl
       return { ok: true, evento: data };
     },
     async assinar(caminho) {
-      const { data } = await bucket().createSignedUrl(caminho, VALIDADE_URL_SEGUNDOS);
-      return data?.signedUrl ?? null;
+      return (await arquivos.assinarLeitura([caminho])).get(caminho) ?? null;
     },
     aposRegistrar(eventoId) {
       const email = configEmail();

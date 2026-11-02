@@ -208,21 +208,26 @@ describe("áudio no pedido de ajuste", () => {
     await expect(registrar("changes_requested", "  ", null)).rejects.toThrow(/check constraint/);
   });
 
-  it("recusa áudio fora da pasta do post, inexistente ou com ..", async () => {
+  it("recusa áudio fora da pasta do post, com .. ou sem nome de arquivo", async () => {
     const daqui = await pasta();
     const deOutroPost = await pasta(outroPost);
     const casos = [
       `${deOutroPost}a.webm`, // de outro post
       `${bruno}/${cliente}/${post}/audios/a.webm`, // de outro dono
       `${daqui}../../0.jpg`, // tentativa de sair da pasta
-      `${daqui}nao-enviado.webm`, // não existe no storage
+      daqui, // só a pasta, sem arquivo
     ];
-    for (const caminho of casos.slice(0, 3)) await enviarArquivo(caminho);
     for (const caminho of casos) {
       await expect(registrar("changes_requested", null, caminho), caminho).rejects.toThrow(
         /audio_invalido/,
       );
     }
+  });
+
+  it("aceita áudio que não está no Supabase Storage (mídias no Cloudflare R2)", async () => {
+    const caminho = `${await pasta()}no-r2.webm`;
+    const { rows } = await registrar("changes_requested", null, caminho);
+    expect(rows[0].audio_path).toBe(caminho);
   });
 
   it("só o servidor descobre a pasta do áudio", async () => {
