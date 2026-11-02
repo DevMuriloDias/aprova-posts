@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Avatar } from "@/components/avatar";
 import { textoProgresso } from "@/lib/aprovacao/progresso";
+import { limiteDeEnvio } from "@/lib/armazenamento";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { listarClientes } from "@/lib/painel/consultas";
 import { FormularioCliente } from "./formulario-cliente";
@@ -31,7 +32,7 @@ async function Conteudo() {
           </h1>
           <p className="mt-1 text-sm text-zinc-600">Seus clientes e o andamento das aprovações.</p>
         </div>
-        <FormularioCliente donoId={usuario.id} />
+        <FormularioCliente limiteBytes={limiteDeEnvio()} />
       </div>
 
       {clientes.length === 0 ? (

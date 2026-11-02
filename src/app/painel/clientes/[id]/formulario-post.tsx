@@ -2,31 +2,33 @@
 
 import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
-import { enviarMidias, removerMidias } from "@/lib/painel/upload";
+import { textoDoLimite } from "@/lib/armazenamento/limites";
+import { descartarMidias, enviarMidias, textoDoProgresso } from "@/lib/painel/upload";
 import {
   MAXIMO_MIDIAS_POR_POST,
   TIPOS_MIDIA_ACEITOS,
   problemaNoArquivo,
 } from "@/lib/painel/validacao";
-import { criarClienteNavegador } from "@/lib/supabase/client";
 import { acaoCriarPost } from "../../actions";
+import { dependenciasEnvio } from "../../dependencias-envio";
 
 type Props = {
-  donoId: string;
   /** Cliente fixo (página do cliente). Sem ele, mostra a escolha de cliente. */
   clienteId?: string;
   clientes?: { id: string; nome: string }[];
   /** Valor inicial do campo de data/hora, ex.: "2026-11-05T10:00". */
   agendadoInicial?: string;
   rotulo?: string;
+  /** Tamanho máximo por arquivo (depende de onde as mídias ficam). */
+  limiteBytes: number;
 };
 
 export function FormularioPost({
-  donoId,
   clienteId: clienteFixo,
   clientes = [],
   agendadoInicial,
   rotulo = "+ Novo post",
+  limiteBytes,
 }: Props) {
   const [aberto, setAberto] = useState(false);
   const [arquivos, setArquivos] = useState<File[]>([]);
@@ -51,7 +53,7 @@ export function FormularioPost({
     setErro(null);
     const novos = Array.from(lista ?? []);
     for (const arquivo of novos) {
-      const problema = problemaNoArquivo(arquivo);
+      const problema = problemaNoArquivo(arquivo, { limiteBytes });
       if (problema) return setErro(problema);
     }
     if (novos.length > MAXIMO_MIDIAS_POR_POST) {
@@ -68,10 +70,12 @@ export function FormularioPost({
     const agendado = String(form.get("agendadoPara") ?? "");
 
     iniciar(async () => {
-      const supabase = criarClienteNavegador();
       const postId = crypto.randomUUID();
-      const envio = await enviarMidias(supabase, { donoId, clienteId, postId }, arquivos, (n, total) =>
-        setProgresso(`Enviando ${n} de ${total}…`),
+      const envio = await enviarMidias(
+        { destino: "post", clienteId, postId },
+        arquivos,
+        dependenciasEnvio,
+        (n, total, fracao) => setProgresso(textoDoProgresso(n, total, fracao)),
       );
       if (!envio.ok) {
         setProgresso(null);
@@ -89,7 +93,7 @@ export function FormularioPost({
       });
       setProgresso(null);
       if (!r.ok) {
-        await removerMidias(supabase, envio.midias);
+        await descartarMidias(dependenciasEnvio, envio.midias);
         return setErro(r.erro);
       }
       setArquivos([]);
@@ -130,6 +134,9 @@ export function FormularioPost({
 
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
         Fotos ou vídeos (na ordem do carrossel)
+        <span className="text-xs font-normal text-zinc-500">
+          Até {textoDoLimite(limiteBytes)} por arquivo. Vídeo grande? Exporte em 1080p.
+        </span>
         <input
           type="file"
           multiple

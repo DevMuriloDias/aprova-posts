@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { envPublico } from "@/lib/env";
-import { BUCKET } from "@/lib/painel/constantes";
+import { armazenamento } from "@/lib/armazenamento";
+import type { DestinoEnvio } from "@/lib/armazenamento/tipos";
+import { descartarEnvios, prepararEnvios, type PedidoEnvio } from "@/lib/painel/envio";
 import {
   criarCliente,
   criarPost,
@@ -49,9 +51,12 @@ export async function acaoEditarPost(entrada: EntradaEdicao): Promise<Resultado>
   const supabase = await criarClienteSupabase();
   const r = await editarPost(entrada, usuario.id, async (args) => supabase.rpc("update_post", args));
   if (!r.ok) return r;
-  // As mídias substituídas não são mais usadas: apaga do storage (RLS: só a pasta do dono).
+  // As mídias substituídas não são mais usadas. Os caminhos vêm de update_post,
+  // que só mexe nos posts de quem está logado.
   if (r.removidos.length > 0) {
-    await supabase.storage.from(BUCKET).remove(r.removidos);
+    await armazenamento()
+      .apagar(r.removidos)
+      .catch((erro) => console.error("[painel] Falha ao apagar mídias antigas:", erro));
   }
   revalidatePath(`/painel/clientes/${entrada.clienteId}`);
   revalidatePath("/painel/calendario");
@@ -97,10 +102,9 @@ export async function acaoMarcarNovidadesVistas(): Promise<string | null> {
   return perfil?.events_seen_at ?? null;
 }
 
+// Os caminhos vêm de delete_client/delete_post, que só apagam dados de quem está logado.
 async function apagarDoStorage(caminhos: string[]) {
-  const supabase = await criarClienteSupabase();
-  const { error } = await supabase.storage.from(BUCKET).remove(caminhos);
-  if (error) throw new Error(error.message);
+  await armazenamento().apagar(caminhos);
 }
 
 export async function acaoExcluirCliente(clienteId: string): Promise<Resultado> {
@@ -128,4 +132,18 @@ export async function acaoReagendarPost(postId: string, agendadoPara: string | n
   const r = await reagendarPost(postId, agendadoPara, async (args) => supabase.rpc("reschedule_post", args));
   if (r.ok) revalidatePath("/painel", "layout");
   return r;
+}
+
+/** Prepara o envio das mídias direto do navegador (R2 ou Supabase). */
+export async function acaoPrepararEnvio(
+  pedido: PedidoEnvio,
+): Promise<Resultado<{ destinos: DestinoEnvio[] }>> {
+  const usuario = await exigirUsuario();
+  return prepararEnvios(pedido, usuario.id, armazenamento());
+}
+
+/** Apaga mídias enviadas que não chegaram a ser usadas. */
+export async function acaoDescartarEnvios(caminhos: string[]): Promise<Resultado> {
+  const usuario = await exigirUsuario();
+  return descartarEnvios(caminhos, usuario.id, armazenamento());
 }

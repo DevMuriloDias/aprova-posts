@@ -125,3 +125,43 @@ entrar oferece **Reenviar e-mail de confirmação** (a resposta é a mesma exist
 
 A página do link envia `Referrer-Policy: no-referrer` (o token não vaza para outros sites),
 `X-Robots-Tag: noindex` e `Cache-Control: private, no-store`.
+
+## Mídias no Cloudflare R2
+
+Fotos, vídeos e áudios podem ficar no [Cloudflare R2](https://developers.cloudflare.com/r2/)
+(grátis até 10 GB, sem cobrança por download). O banco e o login continuam no Supabase.
+
+| Onde ficam as mídias | Limite por arquivo |
+| -------------------- | ------------------ |
+| Supabase Storage (padrão, sem variáveis R2_*) | 50 MB (plano gratuito) |
+| Cloudflare R2 (com as quatro variáveis R2_*) | 500 MB |
+
+Como funciona: o servidor confere quem está logado, escolhe o caminho dentro da pasta do
+usuário e gera um link de envio assinado (válido por 30 min) que amarra o **tipo** e o
+**tamanho** do arquivo; o navegador envia direto para o R2 com barra de progresso. As mídias
+são exibidas por links de leitura assinados, válidos por 1 hora.
+
+### Configurar
+
+1. **Bucket:** no painel da Cloudflare, **R2 → Create bucket** (ex.: `aprova-posts`). Deixe privado.
+2. **CORS do bucket:** em **Settings → CORS policy**, cole (troque pelo seu domínio):
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://aprova-posts-u8lh.vercel.app", "http://localhost:3000"],
+       "AllowedMethods": ["GET", "PUT"],
+       "AllowedHeaders": ["content-type"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+3. **Chave de acesso:** **R2 → Manage API tokens → Create API token**, permissão
+   **Object Read & Write**, só para esse bucket. Guarde o *Access Key ID* e o *Secret Access Key*.
+4. **Variáveis:** preencha `R2_ACCOUNT_ID` (aparece na página do R2), `R2_ACCESS_KEY_ID`,
+   `R2_SECRET_ACCESS_KEY` e `R2_BUCKET` no `.env.local` e na Vercel (marcadas como Sensitive),
+   e faça um novo deploy.
+5. **Copiar as mídias que já existem** (o Supabase não é apagado):
+   ```
+   node --env-file=.env.local scripts/migrar-midias-para-r2.mjs
+   ```
+   Pode rodar de novo: o que já foi copiado é pulado.

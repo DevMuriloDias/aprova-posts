@@ -45,7 +45,7 @@ function renderizar(extra: Partial<Parameters<typeof VistaCalendario>[0]> = {}) 
       hoje="2026-11-03"
       diaSelecionado="2026-11-05"
       clienteId={null}
-      donoId="dono"
+      limiteBytes={50 * 1024 * 1024}
       clientes={[
         { id: ACADEMIA, nome: "Academia" },
         { id: PADARIA, nome: "Padaria" },

@@ -48,9 +48,8 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
 - Links mágicos: salvar só o hash SHA-256 do token (`approval_links.token_hash`), nunca o token.
   O acesso do cliente passa só pelas funções `get_approval_page`, `get_audio_upload_folder` e
   `register_approval` (executáveis apenas pelo `service_role`), chamadas no servidor via
-  `criarClienteAdmin()`. O cliente admin só pode, além disso, assinar URLs das mídias que essas
-  funções devolvem, gravar o áudio na pasta devolvida por `get_audio_upload_folder` e chamar
-  `get_event_notification` para montar o e-mail de aviso ao social media.
+  `criarClienteAdmin()`. O cliente admin só pode, além disso, chamar `get_event_notification`
+  para montar o e-mail de aviso e ser usado pelo módulo de armazenamento (modo Supabase).
 - Avisos: e-mail (opcional, via Resend, só com `RESEND_API_KEY`) em todo pedido de ajuste e quando
   o cliente aprova o último post pendente; enviado com `after()` para não atrasar o cliente. No
   painel, "Novidades" usa `profiles.events_seen_at`.
@@ -64,6 +63,12 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
   (`reschedule_post`) muda só a data e não pede nova aprovação; editar conteúdo (`update_post`) pede.
 - Exclusão: `delete_client` / `delete_post` apagam em cascata e devolvem os arquivos para o app
   remover do storage. O histórico some junto: a interface sempre pede confirmação.
+- Mídias (fotos, vídeos, áudios): sempre pelo módulo `src/lib/armazenamento` (`armazenamento()`),
+  nunca `supabase.storage` direto. Ele usa o Cloudflare R2 se as quatro `R2_*` estiverem definidas
+  e o Supabase Storage se não. Envio do navegador: `acaoPrepararEnvio` (o servidor escolhe o
+  caminho na pasta do dono e, no R2, assina tipo e tamanho) e depois envio direto. Limites em
+  `src/lib/armazenamento/limites.ts` (Supabase 50 MB, R2 500 MB). Os caminhos de mídia sempre
+  vêm de consultas/funções que já passaram pelo RLS.
 - Variáveis de ambiente: documentar em `.env.example` e validar em `src/lib/env.ts`.
 
 ## Comandos

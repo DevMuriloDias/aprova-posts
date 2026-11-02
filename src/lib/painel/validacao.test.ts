@@ -19,10 +19,25 @@ describe("problemaNoArquivo", () => {
     expect(problemaNoArquivo({ name: "a.mp4", type: "video/mp4", size: 1000 })).toBeNull();
   });
 
-  it("recusa formato e tamanho", () => {
+  it("recusa formato e tamanho (limite do Supabase gratuito: 50 MB)", () => {
+    const MB = 1024 * 1024;
     expect(problemaNoArquivo({ name: "a.gif", type: "image/gif", size: 1 })).toMatch(/formato/);
-    expect(problemaNoArquivo({ name: "a.jpg", type: "image/jpeg", size: 101 * 1024 * 1024 })).toMatch(
-      /100 MB/,
+    expect(problemaNoArquivo({ name: "a.jpg", type: "image/jpeg", size: 50 * MB })).toBeNull();
+    expect(problemaNoArquivo({ name: "a.jpg", type: "image/jpeg", size: 50 * MB + 1 })).toBe(
+      '"a.jpg" passa de 50 MB.',
+    );
+    expect(problemaNoArquivo({ name: "v.mov", type: "video/quicktime", size: 60 * MB })).toBe(
+      '"v.mov" passa de 50 MB. Exporte o vídeo em 1080p (no CapCut, por exemplo) para diminuir o tamanho.',
+    );
+    expect(problemaNoArquivo({ name: "vazio.jpg", type: "image/jpeg", size: 0 })).toMatch(/vazio/);
+  });
+
+  it("com o R2, aceita até 500 MB", () => {
+    const MB = 1024 * 1024;
+    const opcoes = { limiteBytes: 500 * MB };
+    expect(problemaNoArquivo({ name: "v.mov", type: "video/quicktime", size: 300 * MB }, opcoes)).toBeNull();
+    expect(problemaNoArquivo({ name: "v.mov", type: "video/quicktime", size: 501 * MB }, opcoes)).toMatch(
+      /passa de 500 MB/,
     );
   });
 

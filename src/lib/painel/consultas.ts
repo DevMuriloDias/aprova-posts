@@ -1,5 +1,5 @@
 import "server-only";
-import { BUCKET_MIDIAS } from "@/lib/aprovacao/dependencias";
+import { armazenamento } from "@/lib/armazenamento";
 import { resumir, type Resumo } from "@/lib/aprovacao/progresso";
 import type { Decisao, StatusPost } from "@/lib/aprovacao/tipos";
 import { criarClienteSupabase } from "@/lib/supabase/server";
@@ -8,19 +8,11 @@ import { ordemDePublicacao } from "./ordem";
 
 type Supabase = Awaited<ReturnType<typeof criarClienteSupabase>>;
 
-const VALIDADE_URL_SEGUNDOS = 60 * 60;
 
-async function assinar(supabase: Supabase, caminhos: string[]) {
-  const urls = new Map<string, string>();
-  if (caminhos.length === 0) return urls;
-  // Com a sessão do social media: o RLS do storage só assina arquivos da pasta dele.
-  const { data } = await supabase.storage
-    .from(BUCKET_MIDIAS)
-    .createSignedUrls(caminhos, VALIDADE_URL_SEGUNDOS);
-  for (const item of data ?? []) {
-    if (item.path && item.signedUrl) urls.set(item.path, item.signedUrl);
-  }
-  return urls;
+/** URLs temporárias das mídias. Os caminhos vêm de consultas que já passaram pelo RLS. */
+async function assinar(caminhos: string[]) {
+  if (caminhos.length === 0) return new Map<string, string>();
+  return armazenamento().assinarLeitura(caminhos);
 }
 
 export type ClienteNaLista = {
@@ -39,10 +31,7 @@ export async function listarClientes(): Promise<ClienteNaLista[]> {
     .order("name");
   if (error) throw new Error(`Falha ao listar clientes: ${error.message}`);
 
-  const urls = await assinar(
-    supabase,
-    data.flatMap((c) => (c.avatar_path ? [c.avatar_path] : [])),
-  );
+  const urls = await assinar(data.flatMap((c) => (c.avatar_path ? [c.avatar_path] : [])));
   return data.map((c) => ({
     id: c.id,
     nome: c.name,
@@ -117,7 +106,7 @@ export async function detalharCliente(clienteId: string): Promise<DetalheCliente
 
   const posts = [...cliente.posts].sort(ordemDePublicacao);
   const capas = posts.map((p) => [...p.post_slides].sort((a, b) => a.position - b.position)[0]);
-  const urls = await assinar(supabase, [
+  const urls = await assinar([
     ...(cliente.avatar_path ? [cliente.avatar_path] : []),
     ...capas.flatMap((c) => (c ? [c.storage_path] : [])),
     ...posts.flatMap((p) => p.approval_events.flatMap((e) => (e.audio_path ? [e.audio_path] : []))),
@@ -194,10 +183,7 @@ export async function listarNovidades(desdeDaUrl: string | null) {
   if (error) throw new Error(`Falha ao carregar as novidades: ${error.message}`);
 
   const linhas = data as unknown as LinhaNovidade[];
-  const urls = await assinar(
-    supabase,
-    linhas.flatMap((l) => (l.audio_path ? [l.audio_path] : [])),
-  );
+  const urls = await assinar(linhas.flatMap((l) => (l.audio_path ? [l.audio_path] : [])));
   return { vistoEm: visto, itens: mapearNovidades(linhas, visto, urls) };
 }
 
@@ -270,10 +256,7 @@ export async function listarCalendario(filtro: {
   const capas = new Map(
     linhas.map((l) => [l.id, [...l.post_slides].sort((a, b) => a.position - b.position)[0]]),
   );
-  const urls = await assinar(
-    supabase,
-    [...capas.values()].flatMap((c) => (c ? [c.storage_path] : [])),
-  );
+  const urls = await assinar([...capas.values()].flatMap((c) => (c ? [c.storage_path] : [])));
 
   const mapear = (l: LinhaCalendario): PostNoCalendario => {
     const capa = capas.get(l.id);
