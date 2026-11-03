@@ -123,6 +123,9 @@ cliente com uma cor), abre a agenda de um dia, cria um post já com a data, muda
 um post (sem pedir nova aprovação) e vê os posts ainda sem data. Dá para filtrar por cliente.
 O app organiza e planeja; a publicação no Instagram continua sendo feita por você.
 
+**Editar cliente:** na página do cliente, **Editar cliente** troca o nome, o @ e a foto de
+perfil (ou tira a foto). A foto antiga é apagada do armazenamento.
+
 **Excluir:** clientes e posts podem ser excluídos no painel. Para excluir um cliente é preciso
 digitar o nome dele; os posts, mídias, links e histórico vão junto.
 

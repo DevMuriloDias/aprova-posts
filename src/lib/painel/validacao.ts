@@ -41,6 +41,10 @@ export function esquemaNovoCliente(donoId: string) {
     });
 }
 
+export function esquemaEdicaoCliente(donoId: string) {
+  return esquemaNovoCliente(donoId).and(z.object({ removerFoto: z.boolean().optional() }));
+}
+
 export function esquemaNovoPost(donoId: string) {
   return z
     .object({
