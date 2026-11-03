@@ -63,6 +63,8 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
   `create_post(p_cover_path)` e `update_post(p_cover_path, p_remover_capa)`; trocar a capa gera nova
   versão. A grade do cliente (`ordemDaGrade`) ordena pela data de postagem, mais recente primeiro,
   e deixa os posts sem data no final.
+- Editar cliente: `UPDATE` direto em `clients` (RLS do dono; a foto precisa estar na pasta do
+  dono). `editarCliente` em `src/lib/painel/servico.ts` devolve a foto antiga para apagar.
 - Calendário: datas agrupadas no horário de Brasília (`src/lib/calendario`). Reagendar
   (`reschedule_post`) muda só a data e não pede nova aprovação; editar conteúdo (`update_post`) pede.
 - Exclusão: `delete_client` / `delete_post` apagam em cascata e devolvem os arquivos para o app

@@ -10,12 +10,14 @@ import { descartarEnvios, prepararEnvios, type PedidoEnvio } from "@/lib/painel/
 import {
   criarCliente,
   criarPost,
+  editarCliente,
   editarPost,
   excluirCliente,
   excluirPost,
   gerarLink,
   reagendarPost,
   type EntradaCliente,
+  type EntradaEdicaoCliente,
   type EntradaEdicao,
   type EntradaPost,
   type Resultado,
@@ -33,6 +35,27 @@ export async function acaoCriarCliente(entrada: EntradaCliente) {
   );
   if (r.ok) revalidatePath("/painel", "layout");
   return r;
+}
+
+export async function acaoEditarCliente(entrada: EntradaEdicaoCliente): Promise<Resultado> {
+  const usuario = await exigirUsuario();
+  const supabase = await criarClienteSupabase();
+  const r = await editarCliente(entrada, usuario.id, {
+    fotoAtual: async (id) => {
+      const { data } = await supabase.from("clients").select("avatar_path").eq("id", id).maybeSingle();
+      return data ? data.avatar_path : undefined;
+    },
+    atualizar: async (id, linha) => supabase.from("clients").update(linha).eq("id", id),
+  });
+  if (!r.ok) return r;
+  // A foto antiga veio da consulta acima, que passou pelo RLS.
+  if (r.removido) {
+    await armazenamento()
+      .apagar([r.removido])
+      .catch((erro) => console.error("[painel] Falha ao apagar a foto antiga:", erro));
+  }
+  revalidatePath("/painel", "layout");
+  return { ok: true };
 }
 
 export async function acaoCriarPost(entrada: EntradaPost) {

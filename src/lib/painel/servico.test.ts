@@ -3,6 +3,7 @@ import { hashDoToken } from "@/lib/links/token";
 import {
   criarCliente,
   criarPost,
+  editarCliente,
   editarPost,
   excluirCliente,
   excluirPost,
@@ -48,6 +49,81 @@ describe("criarCliente", () => {
     const inserir = ok();
     expect(await criarCliente(entrada, DONO, inserir)).toEqual({ ok: false, erro });
     expect(inserir).not.toHaveBeenCalled();
+  });
+});
+
+describe("editarCliente", () => {
+  const FOTO_ATUAL = `${DONO}/${CLIENTE}/avatar-velha.jpg`;
+  const FOTO_NOVA = `${DONO}/${CLIENTE}/avatar-nova.jpg`;
+  const banco = (atual: string | null | undefined = FOTO_ATUAL) => ({
+    fotoAtual: vi.fn().mockResolvedValue(atual),
+    atualizar: vi.fn().mockResolvedValue({ error: null }),
+  });
+
+  it("troca a foto e devolve a antiga para apagar", async () => {
+    const b = banco();
+    const r = await editarCliente(
+      { id: CLIENTE, nome: " Padaria Nova ", instagram: "@padaria", avatarPath: FOTO_NOVA },
+      DONO,
+      b,
+    );
+    expect(r).toEqual({ ok: true, removido: FOTO_ATUAL });
+    expect(b.atualizar).toHaveBeenCalledWith(CLIENTE, {
+      name: "Padaria Nova",
+      instagram_handle: "padaria",
+      avatar_path: FOTO_NOVA,
+    });
+  });
+
+  it("sem foto nova, mantém a atual", async () => {
+    const b = banco();
+    const r = await editarCliente({ id: CLIENTE, nome: "Padaria", instagram: "" }, DONO, b);
+    expect(r).toEqual({ ok: true, removido: null });
+    expect(b.atualizar.mock.calls[0][1]).toMatchObject({ avatar_path: FOTO_ATUAL, instagram_handle: null });
+  });
+
+  it("tira a foto", async () => {
+    const b = banco();
+    const r = await editarCliente({ id: CLIENTE, nome: "Padaria", instagram: "", removerFoto: true }, DONO, b);
+    expect(r).toEqual({ ok: true, removido: FOTO_ATUAL });
+    expect(b.atualizar.mock.calls[0][1]).toMatchObject({ avatar_path: null });
+  });
+
+  it("coloca foto em quem não tinha", async () => {
+    const b = banco(null);
+    const r = await editarCliente({ id: CLIENTE, nome: "Padaria", instagram: "", avatarPath: FOTO_NOVA }, DONO, b);
+    expect(r).toEqual({ ok: true, removido: null });
+    expect(b.atualizar.mock.calls[0][1]).toMatchObject({ avatar_path: FOTO_NOVA });
+  });
+
+  it("cliente de outro social media (ou inexistente) não é editado", async () => {
+    const b = banco();
+    b.fotoAtual.mockResolvedValue(undefined);
+    const r = await editarCliente({ id: CLIENTE, nome: "Padaria", instagram: "" }, DONO, b);
+    expect(r).toEqual({ ok: false, erro: "Cliente não encontrado." });
+    expect(b.atualizar).not.toHaveBeenCalled();
+  });
+
+  it("recusa foto fora da pasta do dono", async () => {
+    const b = banco();
+    const r = await editarCliente(
+      { id: CLIENTE, nome: "Padaria", instagram: "", avatarPath: `${OUTRO}/${CLIENTE}/avatar.jpg` },
+      DONO,
+      b,
+    );
+    expect(r).toEqual({ ok: false, erro: "Foto de perfil inválida." });
+    expect(b.fotoAtual).not.toHaveBeenCalled();
+  });
+
+  it("valida o nome e não apaga a foto se o banco falhar", async () => {
+    expect(await editarCliente({ id: CLIENTE, nome: " ", instagram: "" }, DONO, banco())).toEqual({
+      ok: false,
+      erro: "Informe o nome do cliente.",
+    });
+    const b = banco();
+    b.atualizar.mockResolvedValue({ error: { message: "x" } });
+    const r = await editarCliente({ id: CLIENTE, nome: "P", instagram: "", avatarPath: FOTO_NOVA }, DONO, b);
+    expect(r.ok).toBe(false);
   });
 });
 

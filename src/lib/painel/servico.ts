@@ -1,5 +1,5 @@
 import { gerarToken, hashDoToken, urlDoLink } from "@/lib/links/token";
-import { esquemaEdicaoPost, esquemaNovoCliente, esquemaNovoPost } from "./validacao";
+import { esquemaEdicaoCliente, esquemaEdicaoPost, esquemaNovoCliente, esquemaNovoPost } from "./validacao";
 
 export type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string };
 
@@ -34,6 +34,40 @@ export async function criarCliente(
   });
   if (error) return { ok: false, erro: ERRO_GENERICO };
   return { ok: true, id: dados.data.id };
+}
+
+export type EntradaEdicaoCliente = EntradaCliente & { removerFoto?: boolean };
+
+/**
+ * Edita nome, @ e foto de perfil. Sem foto nova, mantém a atual (ou tira, com
+ * `removerFoto`). Devolve a foto antiga quando ela sai, para apagar do storage.
+ */
+export async function editarCliente(
+  entrada: EntradaEdicaoCliente,
+  donoId: string,
+  banco: {
+    /** Foto atual; `undefined` se o cliente não existe ou não é do usuário (RLS). */
+    fotoAtual: (id: string) => Promise<string | null | undefined>;
+    atualizar: (
+      id: string,
+      linha: { name: string; instagram_handle: string | null; avatar_path: string | null },
+    ) => Promise<RespostaBanco>;
+  },
+): Promise<Resultado<{ removido: string | null }>> {
+  const dados = esquemaEdicaoCliente(donoId).safeParse(entrada);
+  if (!dados.success) return { ok: false, erro: primeiroErro(dados.error.issues) };
+
+  const atual = await banco.fotoAtual(dados.data.id);
+  if (atual === undefined) return { ok: false, erro: "Cliente não encontrado." };
+
+  const nova = dados.data.avatarPath ?? (dados.data.removerFoto ? null : atual);
+  const { error } = await banco.atualizar(dados.data.id, {
+    name: dados.data.nome,
+    instagram_handle: dados.data.instagram,
+    avatar_path: nova,
+  });
+  if (error) return { ok: false, erro: ERRO_GENERICO };
+  return { ok: true, removido: atual && atual !== nova ? atual : null };
 }
 
 export type EntradaPost = {

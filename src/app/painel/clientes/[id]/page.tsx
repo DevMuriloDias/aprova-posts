@@ -11,6 +11,7 @@ import { limiteDeEnvio } from "@/lib/armazenamento";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { formatarDataCurta, formatarDataHora } from "@/lib/formatacao";
 import { detalharCliente, type EventoNoPainel, type PostNoPainel } from "@/lib/painel/consultas";
+import { EditarCliente } from "./editar-cliente";
 import { EditorPost } from "./editor-post";
 import { ExcluirCliente, ExcluirPost } from "./excluir";
 import { FormularioPost } from "./formulario-post";
@@ -55,6 +56,16 @@ async function Conteudo({ params }: { params: PageProps<"/painel/clientes/[id]">
           )}
         </div>
       </header>
+
+      <EditarCliente
+        cliente={{
+          id: cliente.id,
+          nome: cliente.nome,
+          instagram: cliente.instagram,
+          avatarUrl: cliente.avatarUrl,
+        }}
+        limiteBytes={limite}
+      />
 
       <SecaoLink clienteId={cliente.id} nomeCliente={cliente.nome} link={cliente.link} />
 
