@@ -12,7 +12,7 @@ import type {
   PostParaAprovar,
   ResultadoDecisao,
 } from "@/lib/aprovacao/tipos";
-import { formatarDataCurta, formatarDataHora } from "@/lib/formatacao";
+import { formatarDataHora, formatarPostagem } from "@/lib/formatacao";
 
 /** Recebe FormData com postId, acao, comentario e, se houver, audio. */
 export type FuncaoDecidir = (dados: FormData) => Promise<ResultadoDecisao>;
@@ -85,11 +85,13 @@ export function CartaoPost({ post, cliente, decidir, aoDecidir }: Props) {
           <p id={`post-${post.id}-titulo`} className="truncate text-sm font-semibold text-zinc-900">
             {nomeExibido}
           </p>
-          <p className="text-xs text-zinc-500">
-            {post.agendadoPara
-              ? `Previsto: ${formatarDataCurta(post.agendadoPara)}`
-              : "Sem data prevista"}
-          </p>
+          {post.agendadoPara ? (
+            <p className="text-xs font-semibold text-marca-700">
+              Postagem: {formatarPostagem(post.agendadoPara)}
+            </p>
+          ) : (
+            <p className="text-xs text-zinc-500">Sem data de postagem</p>
+          )}
         </div>
         <StatusPostSelo status={post.status} />
       </header>

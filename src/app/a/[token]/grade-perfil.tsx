@@ -2,6 +2,7 @@
 
 import { CORES_PONTO, ROTULOS_STATUS } from "@/components/status-post";
 import type { PostParaAprovar } from "@/lib/aprovacao/tipos";
+import { formatarPostagem, formatarPostagemCurta } from "@/lib/formatacao";
 
 type Props = {
   posts: PostParaAprovar[];
@@ -37,7 +38,9 @@ export function GradePerfil({ posts, aoEscolher }: Props) {
               <button
                 type="button"
                 onClick={() => aoEscolher(post.id)}
-                aria-label={`Abrir post ${i + 1} (${ROTULOS_STATUS[post.status]})`}
+                aria-label={`Abrir post ${i + 1} (${ROTULOS_STATUS[post.status]}${
+                  post.agendadoPara ? `, postagem ${formatarPostagem(post.agendadoPara)}` : ""
+                })`}
                 className="relative block aspect-[3/4] w-full overflow-hidden bg-zinc-200"
               >
                 {capa?.url && capa.tipo === "image" && (
@@ -54,6 +57,14 @@ export function GradePerfil({ posts, aoEscolher }: Props) {
                 {post.midias[0]?.tipo === "video" && post.midias.length === 1 && (
                   <span className="absolute right-1.5 top-1.5 rounded bg-zinc-900/70 px-1.5 text-[10px] font-semibold text-white">
                     vídeo
+                  </span>
+                )}
+                {post.agendadoPara && (
+                  <span
+                    aria-hidden
+                    className="absolute bottom-1 right-1 rounded bg-zinc-900/75 px-1 text-[10px] font-semibold leading-4 text-white"
+                  >
+                    {formatarPostagemCurta(post.agendadoPara)}
                   </span>
                 )}
                 <span

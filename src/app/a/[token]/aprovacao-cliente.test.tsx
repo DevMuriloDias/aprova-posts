@@ -95,7 +95,7 @@ describe("página de aprovação do cliente", () => {
     renderizar();
     const primeiro = cartao(0);
     expect(within(primeiro).getAllByText("padariadobairro")).not.toHaveLength(0);
-    expect(within(primeiro).getByText(/Previsto: 05 de nov/)).toBeInTheDocument();
+    expect(within(primeiro).getByText("Postagem: quinta, 05/11 às 12:00")).toBeInTheDocument();
     expect(within(primeiro).getAllByRole("img")).toHaveLength(2);
     expect(primeiro.querySelector("video")).not.toBeNull();
     expect(within(primeiro).getByText("1/3")).toBeInTheDocument();
@@ -186,6 +186,13 @@ describe("página de aprovação do cliente", () => {
     ]);
     expect(itens[2]).toHaveTextContent("carrossel");
     expect(itens[3]).toHaveAttribute("aria-label", "Abrir post 4 (Aprovado)");
+    // Data e horário de postagem visíveis em cada quadrado (horário de Brasília).
+    expect(itens[1]).toHaveTextContent("10/11 · 12:00");
+    expect(itens[1]).toHaveAttribute(
+      "aria-label",
+      "Abrir post 2 (Aguardando aprovação, postagem terça, 10/11 às 12:00)",
+    );
+    expect(itens[3]).not.toHaveTextContent("·");
 
     await userEvent.click(itens[0]);
     expect(screen.getByRole("tab", { name: "Posts" })).toHaveAttribute("aria-selected", "true");
