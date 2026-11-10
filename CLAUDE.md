@@ -75,6 +75,9 @@ SaaS em português (pt-BR) para **social medias** enviarem posts de Instagram pa
   caminho na pasta do dono e, no R2, assina tipo e tamanho) e depois envio direto. Limites em
   `src/lib/armazenamento/limites.ts` (Supabase 50 MB, R2 500 MB). Os caminhos de mídia sempre
   vêm de consultas/funções que já passaram pelo RLS.
+- Vídeos: antes de enviar, `prepararArquivos` + `otimizarVideo` (`src/lib/video`) convertem no
+  navegador para H.264 até 1080p/30 fps (~6 Mbps, fastStart). A decisão fica em `planoDoVideo`
+  (testável); qualquer falha envia o original.
 - Variáveis de ambiente: documentar em `.env.example` e validar em `src/lib/env.ts`.
 
 ## Comandos
