@@ -4,7 +4,13 @@ import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
 import type { StatusPost } from "@/lib/aprovacao/tipos";
 import { textoDoLimite } from "@/lib/armazenamento/limites";
-import { descartarMidias, enviarMidias, paraCampoDataHora, textoDoProgresso } from "@/lib/painel/upload";
+import {
+  descartarMidias,
+  enviarMidias,
+  prepararArquivos,
+  textoDaPreparacao,
+  paraCampoDataHora, textoDoProgresso } from "@/lib/painel/upload";
+import { otimizarVideo } from "@/lib/video/otimizar";
 import {
   MAXIMO_MIDIAS_POR_POST,
   TIPOS_MIDIA_ACEITOS,
@@ -79,9 +85,13 @@ export function EditorPost({ clienteId, post, limiteBytes }: Props) {
       let midias: { caminho: string; tipo: "image" | "video" }[] | undefined;
 
       if (arquivos.length > 0) {
+        // Vídeos pesados travam no celular do cliente: convertemos antes de enviar.
+        const prontos = await prepararArquivos(arquivos, otimizarVideo, (n, total, fracao) =>
+          setProgresso(textoDaPreparacao(n, total, fracao)),
+        );
         const envio = await enviarMidias(
           { destino: "post", clienteId, postId: post.id },
-          arquivos,
+          prontos,
           dependenciasEnvio,
           (n, total, fracao) => setProgresso(textoDoProgresso(n, total, fracao)),
         );
@@ -192,7 +202,7 @@ export function EditorPost({ clienteId, post, limiteBytes }: Props) {
           {arquivos.length > 0
             ? `${arquivos.length} ${arquivos.length === 1 ? "arquivo novo substitui" : "arquivos novos substituem"} as ${post.totalMidias} mídias atuais.`
             : `Sem escolher nada, ficam as ${post.totalMidias} mídias atuais.`}{" "}
-          Até {textoDoLimite(limiteBytes)} por arquivo.
+          Até {textoDoLimite(limiteBytes)} por arquivo. Os vídeos são ajustados para tocar liso no celular.
         </span>
         <input
           type="file"

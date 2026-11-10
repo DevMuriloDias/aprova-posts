@@ -3,7 +3,13 @@
 import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
 import { textoDoLimite } from "@/lib/armazenamento/limites";
-import { descartarMidias, enviarMidias, textoDoProgresso } from "@/lib/painel/upload";
+import {
+  descartarMidias,
+  enviarMidias,
+  prepararArquivos,
+  textoDaPreparacao,
+  textoDoProgresso } from "@/lib/painel/upload";
+import { otimizarVideo } from "@/lib/video/otimizar";
 import {
   MAXIMO_MIDIAS_POR_POST,
   TIPOS_MIDIA_ACEITOS,
@@ -73,9 +79,13 @@ export function FormularioPost({
 
     iniciar(async () => {
       const postId = crypto.randomUUID();
+      // Vídeos pesados travam no celular do cliente: convertemos antes de enviar.
+      const prontos = await prepararArquivos(arquivos, otimizarVideo, (n, total, fracao) =>
+        setProgresso(textoDaPreparacao(n, total, fracao)),
+      );
       const envio = await enviarMidias(
         { destino: "post", clienteId, postId },
-        arquivos,
+        prontos,
         dependenciasEnvio,
         (n, total, fracao) => setProgresso(textoDoProgresso(n, total, fracao)),
       );
@@ -153,7 +163,8 @@ export function FormularioPost({
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800">
         Fotos ou vídeos (na ordem do carrossel)
         <span className="text-xs font-normal text-zinc-500">
-          Até {textoDoLimite(limiteBytes)} por arquivo. Vídeo grande? Exporte em 1080p.
+          Até {textoDoLimite(limiteBytes)} por arquivo. Os vídeos são ajustados antes do envio para tocar
+          liso no celular do cliente.
         </span>
         <input
           type="file"

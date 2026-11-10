@@ -61,6 +61,37 @@ export async function descartarMidias(deps: Pick<DependenciasEnvio, "descartar">
   await deps.descartar(midias.map((m) => m.caminho)).catch(() => undefined);
 }
 
+/**
+ * Antes de enviar, deixa os vídeos leves para tocar no celular (as fotos passam direto).
+ * `otimizar` devolve o próprio arquivo quando não há o que fazer.
+ */
+export async function prepararArquivos(
+  arquivos: File[],
+  otimizar: (video: File, aoProgresso: (fracao: number) => void) => Promise<File>,
+  aoProgredir?: (atual: number, total: number, fracao: number) => void,
+): Promise<File[]> {
+  const videos = arquivos.filter((a) => a.type.startsWith("video/"));
+  const prontos: File[] = [];
+  let n = 0;
+  for (const arquivo of arquivos) {
+    if (!arquivo.type.startsWith("video/")) {
+      prontos.push(arquivo);
+      continue;
+    }
+    n += 1;
+    const atual = n;
+    aoProgredir?.(atual, videos.length, 0);
+    prontos.push(await otimizar(arquivo, (fracao) => aoProgredir?.(atual, videos.length, fracao)).catch(() => arquivo));
+  }
+  return prontos;
+}
+
+/** "Preparando o vídeo 1 de 2… 45%" */
+export function textoDaPreparacao(atual: number, total: number, fracao: number): string {
+  const base = total > 1 ? `Preparando o vídeo ${atual} de ${total}…` : "Preparando o vídeo…";
+  return fracao > 0 && fracao < 1 ? `${base} ${Math.round(fracao * 100)}%` : base;
+}
+
 /** "Enviando 1 de 3… 45%" */
 export function textoDoProgresso(atual: number, total: number, fracao: number): string {
   const base = total > 1 ? `Enviando ${atual} de ${total}…` : "Enviando…";

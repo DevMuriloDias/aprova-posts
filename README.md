@@ -118,6 +118,11 @@ capa, a grade usa a primeira foto ou vídeo. Trocar ou tirar a capa conta como e
 ganha nova versão e volta para aprovação. A grade segue a data de postagem (o último a ser
 publicado aparece primeiro, como no perfil); posts sem data ficam no final.
 
+**Vídeos leves:** antes do envio, o navegador do social media converte os vídeos pesados (4K,
+60 fps, HEVC/.mov, taxa de bits alta) para MP4 H.264 de até 1080p, 30 fps e ~6 Mbps, com o índice no
+começo do arquivo. Assim eles tocam sem travar no celular do cliente. Usa WebCodecs (biblioteca
+`mediabunny`, carregada só quando há vídeo); se o navegador não conseguir converter, envia o original.
+
 **Calendário:** em **Calendário** o social media vê os posts de todos os clientes no mês (cada
 cliente com uma cor), abre a agenda de um dia, cria um post já com a data, muda a data/horário de
 um post (sem pedir nova aprovação) e vê os posts ainda sem data. Dá para filtrar por cliente.
